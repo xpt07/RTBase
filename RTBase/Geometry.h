@@ -46,7 +46,7 @@ public:
 	}
 };
 
-#define EPSILON 0.001f
+#define EPSILON 1e-7f
 
 class Triangle
 {
@@ -57,18 +57,28 @@ public:
 	Vec3 n; // Geometric Normal
 	float area; // Triangle area
 	float d; // For ray triangle if needed
+	Vec3 maxP, minP;
+	Vec3 center;
 	unsigned int materialIndex;
 	void init(Vertex v0, Vertex v1, Vertex v2, unsigned int _materialIndex)
 	{
 		materialIndex = _materialIndex;
+
 		vertices[0] = v0;
 		vertices[1] = v1;
 		vertices[2] = v2;
-		e1 = vertices[2].p - vertices[1].p;
-		e2 = vertices[0].p - vertices[2].p;
+
+		e1 = vertices[0].p - vertices[2].p;
+		e2 = vertices[1].p - vertices[2].p;
+
 		n = e1.cross(e2).normalize();
 		area = e1.cross(e2).length() * 0.5f;
 		d = Dot(n, vertices[0].p);
+
+		maxP = Max(vertices[0].p, Max(vertices[1].p, vertices[2].p));
+		minP = Min(vertices[0].p, Min(vertices[1].p, vertices[2].p));
+
+		center = minP + (maxP - minP) * 0.5f;
 	}
 	Vec3 centre() const
 	{
@@ -77,16 +87,31 @@ public:
 
 	bool rayIntersect(const Ray& r, float& t, float& u, float& v) const
 	{
-		float denom = Dot(n, r.dir);
-		if (denom == 0) { return false; }
-		t = (d - Dot(n, r.o)) / denom;
-		if (t < 0) { return false; }
-		Vec3 p = r.at(t);
-		float invArea = 1.0f / Dot(e1.cross(e2), n);
-		u = Dot(e1.cross(p - vertices[1].p), n) * invArea;
-		if (u < 0 || u > 1.0f) { return false; }
-		v = Dot(e2.cross(p - vertices[2].p), n) * invArea;
-		if (v < 0 || (u + v) > 1.0f) { return false; }
+		Vec3 p = Cross(r.dir, e2);
+		float det = p.dot(e1);
+
+		if (std::abs(det) < EPSILON)
+			return false;
+
+		float invDet = 1.0f / det;
+		Vec3 T = r.o - vertices[2].p;
+
+		u = T.dot(p) * invDet;
+
+		if ((u < 0 && abs(u) > EPSILON) || (u > 1 && abs(u - 1) > EPSILON))
+			return false;
+
+		p = Cross(T, e1);
+		v = r.dir.dot(p) * invDet;
+
+		if ((v < 0 && abs(v) > EPSILON) || (u + v > 1 && abs(u + v - 1) > EPSILON))
+			return false;
+
+		t = e2.dot(p) * invDet;
+
+		if (t < EPSILON)
+			return false;
+
 		return true;
 	}
 	void interpolateAttributes(const float alpha, const float beta, const float gamma, Vec3& interpolatedNormal, float& interpolatedU, float& interpolatedV) const
@@ -99,7 +124,18 @@ public:
 	// Add code here
 	Vec3 sample(Sampler* sampler, float& pdf)
 	{
-		return Vec3(0, 0, 0);
+		float r1 = sampler->next();
+		float r2 = sampler->next();
+		
+		float alpha = 1 - sqrt(r1);
+		float beta = r2 * sqrt(r1);
+		float gamma = 1 - (alpha + beta);
+		
+		pdf = 1 / area;
+		
+		Vec3 p = vertices[0].p * alpha + vertices[1].p * beta + vertices[2].p * gamma;
+
+		return p;
 	}
 	Vec3 gNormal()
 	{
@@ -112,6 +148,7 @@ class AABB
 public:
 	Vec3 max;
 	Vec3 min;
+	Vec3 center;
 	AABB()
 	{
 		reset();
@@ -120,16 +157,29 @@ public:
 	{
 		max = Vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
 		min = Vec3(FLT_MAX, FLT_MAX, FLT_MAX);
+		updateCenter();
 	}
+
+	void updateCenter()
+	{
+		center = (min + max) * 0.5f;
+	}
+
 	void extend(const Vec3 p)
 	{
 		max = Max(max, p);
 		min = Min(min, p);
+		updateCenter();
 	}
 	void extend(const AABB& other)
 	{
 		extend(other.min);
 		extend(other.max);
+	}
+	void extend(Triangle triangle) {
+		extend(triangle.vertices[0].p);
+		extend(triangle.vertices[1].p);
+		extend(triangle.vertices[2].p);
 	}
 	// Add code here
 	bool rayAABB(const Ray& r, float& t)
@@ -187,23 +237,23 @@ struct IntersectionData
 	float gamma;
 };
 
-#define MAXNODE_TRIANGLES 8
+#define MAXNODE_TRIANGLES 32
 #define TRAVERSE_COST 1.0f
 #define TRIANGLE_COST 2.0f
 #define BUILD_BINS 32
+#define MAX_DEPTH 16 
 
 class BVHNode
 {
 public:
 	AABB bounds;
-	BVHNode* r;
-	BVHNode* l;
+	BVHNode* right;
+	BVHNode* left;
 	std::vector<int> triangleIndices; // For leaf nodes
 
 #ifdef DEBUG_BVH
-	// Static counters for debugging.
-	static int debugLeafCount;
-	static int debugInternalCount;
+	static int totalLeafNodes;
+	static int totalInternalNodes;
 #endif
 
 	// This can store an offset and number of triangles in a global triangle list for example
@@ -212,65 +262,134 @@ public:
 	// unsigned char num;
 	BVHNode()
 	{
-		r = NULL;
-		l = NULL;
+		right = NULL;
+		left = NULL;
+	}
+
+	~BVHNode()
+	{
+		delete left;
+		delete right;
 	}
 	// Note there are several options for how to implement the build method. Update this as required
-	void build(std::vector<Triangle>& inputTriangles)
+	void build(std::vector<Triangle>& triangles, std::vector<int>& indices, int depth = 0)
 	{
 #ifdef DEBUG_BVH
-		// Reset debug counters at build start.
-		debugLeafCount = 0;
-		debugInternalCount = 0;
+		if (depth == 0) {
+			totalLeafNodes = 0;
+			totalInternalNodes = 0;
+			std::cout << "[BVH] Building BVH..." << std::endl;
+		}
 #endif
 
-		// Create an index list for all triangles.
-		std::vector<int> indices(inputTriangles.size());
-		for (unsigned int i = 0; i < inputTriangles.size(); i++)
+		// Compute bounding box
+		bounds.reset();
+		for (int i : indices)
+			bounds.extend(triangles[i]);
+
+		// Stop if max depth is reached or few triangles remain
+		if (indices.size() <= MAXNODE_TRIANGLES)
 		{
-			indices[i] = i;
-		}
-		// Build recursively.
-		recursiveBuild(inputTriangles, indices, 0, indices.size());
+			triangleIndices = indices;
 
 #ifdef DEBUG_BVH
-		// Print summary debug information once after build.
-		std::cout << "BVH Build complete. Leaves: " << debugLeafCount
-			<< ", Internal nodes: " << debugInternalCount << std::endl;
+			totalLeafNodes++;
+			std::cout << "[BVH] Leaf Node | Depth: " << depth
+				<< " | Triangles: " << triangleIndices.size()
+				<< " | Total Leaves: " << totalLeafNodes << std::endl;
+#endif
+			return;
+		}
+
+		// Compute the longest axis
+		Vec3 extent = bounds.max - bounds.min;
+		int axis = (extent.x > extent.y && extent.x > extent.z) ? 0 : (extent.y > extent.z) ? 1 : 2;
+
+		// Sort triangles along the chosen axis
+		std::sort(indices.begin(), indices.end(), [&](int a, int b) {
+			return triangles[a].centre()[axis] < triangles[b].centre()[axis];
+			});
+
+		// Split at the median
+		size_t mid = indices.size() / 2;
+		std::vector<int> leftIndices(indices.begin(), indices.begin() + mid);
+		std::vector<int> rightIndices(indices.begin() + mid, indices.end());
+
+		if (leftIndices.empty() || rightIndices.empty()) {
+			// If split failed, force leaf node
+			triangleIndices = indices;
+#ifdef DEBUG_BVH
+			std::cout << "[BVH] Split Failed - Creating Leaf | Depth: " << depth
+				<< " | Triangles: " << triangleIndices.size() << std::endl;
+			totalLeafNodes++;
+#endif
+			return;
+		}
+
+		// Create child nodes
+		left = new BVHNode();
+		right = new BVHNode();
+		left->build(triangles, leftIndices, depth + 1);
+		right->build(triangles, rightIndices, depth + 1);
+
+#ifdef DEBUG_BVH
+		totalInternalNodes++;
+		if (depth < 5) // Only print deeper nodes for major splits
+		{
+			std::cout << "[BVH] Internal Node | Depth: " << depth
+				<< " | Split Axis: " << axis
+				<< " | Left: " << leftIndices.size()
+				<< " | Right: " << rightIndices.size()
+				<< " | Total Internal Nodes: " << totalInternalNodes << std::endl;
+		}
+
+		if (depth == 0) { // Print final statistics after BVH root finishes
+			std::cout << "[BVH Stats] Total Internal Nodes: " << totalInternalNodes
+				<< " | Total Leaf Nodes: " << totalLeafNodes << std::endl;
+
+			// Validate total triangle count
+			int totalTriangles = 0;
+			countTriangles(this, totalTriangles);
+			std::cout << "[BVH] Total Triangles in Leaves: " << totalTriangles
+				<< " (Expected: " << triangles.size() << ")" << std::endl;
+		}
 #endif
 	}
+
+	// Helper function to count triangles in leaf nodes
+	void countTriangles(BVHNode* node, int& total)
+	{
+		if (!node) return;
+		if (!node->left && !node->right)
+			total += node->triangleIndices.size();
+		else
+		{
+			countTriangles(node->left, total);
+			countTriangles(node->right, total);
+		}
+	}
+
 	void traverse(const Ray& ray, const std::vector<Triangle>& triangles, IntersectionData& intersection)
 	{
 		float tHit;
-		// If the ray misses this node’s bounding box or the hit is farther than a recorded hit, return.
 		if (!bounds.rayAABB(ray, tHit) || tHit > intersection.t)
 			return;
-		// If this is a leaf node, test all triangles.
-		if (!l && !r)
-		{
-			for (int idx : triangleIndices)
-			{
+
+		if (!left && !right) {
+			for (int idx : triangleIndices) {
 				float t, u, v;
-				if (triangles[idx].rayIntersect(ray, t, u, v))
-				{
-					if (t < intersection.t)
-					{
-						intersection.t = t;
-						intersection.ID = idx;
-						intersection.alpha = 1.0f - u - v;
-						intersection.beta = u;
-						intersection.gamma = v;
-					}
+				if (triangles[idx].rayIntersect(ray, t, u, v) && t < intersection.t) {
+					intersection.t = t;
+					intersection.ID = idx;
+					intersection.alpha = 1.0f - u - v;
+					intersection.beta = u;
+					intersection.gamma = v;
 				}
 			}
 		}
-		else
-		{
-			// Otherwise, traverse both children.
-			if (l)
-				l->traverse(ray, triangles, intersection);
-			if (r)
-				r->traverse(ray, triangles, intersection);
+		else {
+			if (left) left->traverse(ray, triangles, intersection);
+			if (right) right->traverse(ray, triangles, intersection);
 		}
 	}
 	IntersectionData traverse(const Ray& ray, const std::vector<Triangle>& triangles)
@@ -282,190 +401,27 @@ public:
 	}
 	bool traverseVisible(const Ray& ray, const std::vector<Triangle>& triangles, const float maxT)
 	{
-		// Add visibility code here
-		return true;
-	}
+		float tHit;
+		if (!bounds.rayAABB(ray, tHit) || tHit > maxT)
+			return false;
 
-private:
-
-	// A small struct to store bin information
-	struct Bin
-	{
-		AABB bounds;
-		int count;
-		Bin() : count(0) { bounds.reset(); }
-	};
-
-	// Recursive BVH build helper using binned SAH.
-    void recursiveBuild(const std::vector<Triangle>& triangles, std::vector<int>& indices, int start, int end)
-    {
-        // Compute bounds for triangles in [start, end).
-        bounds.reset();
-        for (int i = start; i < end; i++)
-        {
-            int idx = indices[i];
-            bounds.extend(triangles[idx].vertices[0].p);
-            bounds.extend(triangles[idx].vertices[1].p);
-            bounds.extend(triangles[idx].vertices[2].p);
-        }
-        int count = end - start;
-        // Create a leaf if the number of triangles is small.
-        if (count <= MAXNODE_TRIANGLES)
-        {
-			triangleIndices.reserve(count);
-			for (int i = start; i < end; i++)
-				triangleIndices.push_back(indices[i]);
-#ifdef DEBUG_BVH
-			debugLeafCount++;
-#endif
-			return;
-        }
-        // Compute centroid bounds.
-		AABB centroidBounds;
-		centroidBounds.reset();
-		for (int i = start; i < end; i++)
-			centroidBounds.extend(triangles[indices[i]].centre());
-
-        Vec3 extent = centroidBounds.max - centroidBounds.min;
-
-        // Choose the axis with maximum extent.
-        int axis = 0;
-        if (extent.y > extent.x && extent.y > extent.z)
-            axis = 1;
-        else if (extent.z > extent.x)
-            axis = 2;
-
-        // If the extent is too small, make a leaf.
-        if (extent[axis] < EPSILON)
-        {
-			triangleIndices.reserve(count);
-			for (int i = start; i < end; i++)
-				triangleIndices.push_back(indices[i]);
-#ifdef DEBUG_BVH
-			debugLeafCount++;
-#endif
-			return;
-        }
-		// Build bins along that axis.
-		Bin bins[BUILD_BINS];
-		const float invExtent = 1.0f / extent[axis];
-
-		// Put each triangle's centroid into a bin
-		for (int i = start; i < end; i++)
+		if (!left && !right)
 		{
-			int idx = indices[i];
-			float c = triangles[idx].centre()[axis];
-			// normalized 0..1 bin coordinate
-			float rel = (c - centroidBounds.min[axis]) * invExtent;
-			int b = (int)(rel * BUILD_BINS);
-			if (b < 0) b = 0;
-			if (b >= BUILD_BINS) b = BUILD_BINS - 1;
-
-			bins[b].count++;
-			bins[b].bounds.extend(triangles[idx].vertices[0].p);
-			bins[b].bounds.extend(triangles[idx].vertices[1].p);
-			bins[b].bounds.extend(triangles[idx].vertices[2].p);
-		}
-
-		//Compute prefix and suffix for areas and counts
-		float leftArea[BUILD_BINS];
-		float rightArea[BUILD_BINS];
-		int leftCount[BUILD_BINS];
-		int rightCount[BUILD_BINS];
-
-		AABB tempBox;
-		tempBox.reset();
-		int tempCount = 0;
-		for (int i = 0; i < BUILD_BINS; i++)
-		{
-			tempBox.extend(bins[i].bounds);
-			tempCount += bins[i].count;
-			leftArea[i] = tempBox.area();
-			leftCount[i] = tempCount;
-		}
-
-		tempBox.reset();
-		tempCount = 0;
-		for (int i = BUILD_BINS - 1; i >= 0; i--)
-		{
-			tempBox.extend(bins[i].bounds);
-			tempCount += bins[i].count;
-			rightArea[i] = tempBox.area();
-			rightCount[i] = tempCount;
-		}
-
-		// Find best split among bin boundaries
-		float parentArea = bounds.area();
-		// Leaf cost = c_trav + (N * c_isect), for comparison
-		float leafCost = TRAVERSE_COST + count * TRIANGLE_COST;
-
-		float bestCost = leafCost;
-		int   bestSplit = -1;
-		for (int i = 0; i < BUILD_BINS - 1; i++)
-		{
-			float costLeft = leftArea[i] * leftCount[i];
-			float costRight = rightArea[i + 1] * rightCount[i + 1];
-			float cost = TRAVERSE_COST + (costLeft + costRight) / parentArea * TRIANGLE_COST;
-
-			if (cost < bestCost)
+			for (int idx : triangleIndices)
 			{
-				bestCost = cost;
-				bestSplit = i;
+				float t, u, v;
+				if (triangles[idx].rayIntersect(ray, t, u, v) && t < maxT)
+					return false; // Occluded
 			}
+			return true;
 		}
 
-		// If no beneficial split, make a leaf
-		if (bestSplit < 0 || bestCost >= leafCost)
-		{
-			triangleIndices.reserve(count);
-			for (int i = start; i < end; i++)
-				triangleIndices.push_back(indices[i]);
-#ifdef DEBUG_BVH
-			debugLeafCount++;
-#endif
-			return;
-		}
-
-		// Partition the triangles according to the best split boundary
-		float splitCoord = centroidBounds.min[axis] + (float)(bestSplit + 1) * (extent[axis] / BUILD_BINS);
-
-		// Partition the index array so that all centroids < splitCoord go left
-		// and the rest go right.
-		auto midIter = std::partition(
-			indices.begin() + start, indices.begin() + end,
-			[&](int idx)
-			{
-				float c = triangles[idx].centre()[axis];
-				return c < splitCoord;
-			}
-		);
-		int mid = (int)(midIter - (indices.begin() + start)) + start;
-
-		// If partitioning fails to split the set (all triangles fall on one side), create a leaf.
-		if (mid == start || mid == end)
-		{
-			triangleIndices.reserve(count);
-			for (int i = start; i < end; i++)
-				triangleIndices.push_back(indices[i]);
-#ifdef DEBUG_BVH
-			debugLeafCount++;
-#endif
-			return;
-		}
-
-		// Create child nodes and recurse
-		l = new BVHNode();
-		r = new BVHNode();
-#ifdef DEBUG_BVH
-		debugInternalCount++;
-#endif
-		l->recursiveBuild(triangles, indices, start, mid);
-		r->recursiveBuild(triangles, indices, mid, end);
+		return (left && left->traverseVisible(ray, triangles, maxT)) &&
+			(right && right->traverseVisible(ray, triangles, maxT));
 	}
 };
 
 #ifdef DEBUG_BVH
-// Initialize static debug counters.
-int BVHNode::debugLeafCount = 0;
-int BVHNode::debugInternalCount = 0;
+int BVHNode::totalLeafNodes = 0;
+int BVHNode::totalInternalNodes = 0;
 #endif

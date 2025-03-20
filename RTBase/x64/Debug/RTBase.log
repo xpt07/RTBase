@@ -1,80 +1,80 @@
 ﻿  Main.cpp
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Sampling.h(40,19): warning C4305: 'return': truncation from 'double' to 'float'
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Sampling.h(40,19): warning C4305: 'return': truncation from 'double' to 'float'
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Sampling.h(61,19): warning C4305: 'return': truncation from 'double' to 'float'
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Sampling.h(60,19): warning C4305: 'return': truncation from 'double' to 'float'
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Geometry.h(235,58): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Geometry.h(364,39): warning C4267: '+=': conversion from 'size_t' to 'int', possible loss of data
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Imaging.h(186,12): warning C4305: 'initializing': truncation from 'double' to 'float'
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Imaging.h(186,12): warning C4305: 'initializing': truncation from 'double' to 'float'
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Imaging.h(188,12): warning C4305: 'initializing': truncation from 'double' to 'float'
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Imaging.h(188,12): warning C4305: 'initializing': truncation from 'double' to 'float'
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Imaging.h(189,12): warning C4305: 'initializing': truncation from 'double' to 'float'
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Imaging.h(189,12): warning C4305: 'initializing': truncation from 'double' to 'float'
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Imaging.h(190,12): warning C4305: 'initializing': truncation from 'double' to 'float'
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Imaging.h(190,12): warning C4305: 'initializing': truncation from 'double' to 'float'
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Imaging.h(191,12): warning C4305: 'initializing': truncation from 'double' to 'float'
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Imaging.h(191,12): warning C4305: 'initializing': truncation from 'double' to 'float'
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Imaging.h(192,12): warning C4305: 'initializing': truncation from 'double' to 'float'
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Imaging.h(192,12): warning C4305: 'initializing': truncation from 'double' to 'float'
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Imaging.h(204,23): warning C4018: '<': signed/unsigned mismatch
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Imaging.h(204,23): warning C4018: '<': signed/unsigned mismatch
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Imaging.h(204,48): warning C4018: '<': signed/unsigned mismatch
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Imaging.h(204,48): warning C4018: '<': signed/unsigned mismatch
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Imaging.h(212,21): warning C4018: '<': signed/unsigned mismatch
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Imaging.h(212,21): warning C4018: '<': signed/unsigned mismatch
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Materials.h(96,70): warning C4305: 'argument': truncation from 'double' to 'const float'
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Materials.h(96,70): warning C4305: 'argument': truncation from 'double' to 'const float'
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Materials.h(103,59): warning C4305: 'argument': truncation from 'double' to 'const float'
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Materials.h(103,59): warning C4305: 'argument': truncation from 'double' to 'const float'
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Materials.h(138,70): warning C4305: 'argument': truncation from 'double' to 'const float'
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Materials.h(138,70): warning C4305: 'argument': truncation from 'double' to 'const float'
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Materials.h(145,59): warning C4305: 'argument': truncation from 'double' to 'const float'
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Materials.h(145,59): warning C4305: 'argument': truncation from 'double' to 'const float'
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Materials.h(187,70): warning C4305: 'argument': truncation from 'double' to 'const float'
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Materials.h(187,70): warning C4305: 'argument': truncation from 'double' to 'const float'
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Materials.h(194,59): warning C4305: 'argument': truncation from 'double' to 'const float'
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Materials.h(194,59): warning C4305: 'argument': truncation from 'double' to 'const float'
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Materials.h(233,70): warning C4305: 'argument': truncation from 'double' to 'const float'
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Materials.h(233,70): warning C4305: 'argument': truncation from 'double' to 'const float'
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Materials.h(240,59): warning C4305: 'argument': truncation from 'double' to 'const float'
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Materials.h(240,59): warning C4305: 'argument': truncation from 'double' to 'const float'
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Materials.h(281,70): warning C4305: 'argument': truncation from 'double' to 'const float'
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Materials.h(281,70): warning C4305: 'argument': truncation from 'double' to 'const float'
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Materials.h(288,59): warning C4305: 'argument': truncation from 'double' to 'const float'
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Materials.h(288,59): warning C4305: 'argument': truncation from 'double' to 'const float'
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Materials.h(325,70): warning C4305: 'argument': truncation from 'double' to 'const float'
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Materials.h(325,70): warning C4305: 'argument': truncation from 'double' to 'const float'
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Materials.h(332,59): warning C4305: 'argument': truncation from 'double' to 'const float'
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Materials.h(332,59): warning C4305: 'argument': truncation from 'double' to 'const float'
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Materials.h(377,70): warning C4305: 'argument': truncation from 'double' to 'const float'
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Materials.h(377,70): warning C4305: 'argument': truncation from 'double' to 'const float'
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Materials.h(384,59): warning C4305: 'argument': truncation from 'double' to 'const float'
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Materials.h(384,59): warning C4305: 'argument': truncation from 'double' to 'const float'
   (compiling source file 'Main.cpp')
   
-  RTBase.vcxproj -> C:\Users\xpto7\OneDrive\Desktop\AdvCG\x64\Debug\RTBase.exe
+  RTBase.vcxproj -> C:\Users\u5632744\Desktop\test-AdvCG\x64\Debug\RTBase.exe

@@ -205,6 +205,30 @@ TEST(AABBExtend, MultiplePoints)
     EXPECT_FLOAT_EQ(box.max.z, 5.0f);
 }
 
+TEST(AABBExtend, ExtendWithTriangle)
+{
+    AABB box;
+    box.reset();
+
+    Vertex v0 = { Vec3(1, 2, 3), Vec3(0, 0, 1), 0.0f, 0.0f };
+    Vertex v1 = { Vec3(-1, 5, 0), Vec3(0, 1, 0), 0.5f, 0.5f };
+    Vertex v2 = { Vec3(3, -2, 4), Vec3(1, 0, 0), 1.0f, 1.0f };
+
+    Triangle tri;
+    tri.init(v0, v1, v2, 0);
+
+    box.extend(tri);
+
+    EXPECT_FLOAT_EQ(box.min.x, -1.0f);
+    EXPECT_FLOAT_EQ(box.min.y, -2.0f);
+    EXPECT_FLOAT_EQ(box.min.z, 0.0f);
+
+    EXPECT_FLOAT_EQ(box.max.x, 3.0f);
+    EXPECT_FLOAT_EQ(box.max.y, 5.0f);
+    EXPECT_FLOAT_EQ(box.max.z, 4.0f);
+}
+
+
 TEST(AABBExtend, MergeBoxes)
 {
     AABB boxA;

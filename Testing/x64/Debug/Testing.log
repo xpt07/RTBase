@@ -1,11 +1,11 @@
 ﻿  test.cpp
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Sampling.h(40,19): warning C4305: 'return': truncation from 'double' to 'float'
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Sampling.h(40,19): warning C4305: 'return': truncation from 'double' to 'float'
   (compiling source file '/test.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Sampling.h(61,19): warning C4305: 'return': truncation from 'double' to 'float'
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Sampling.h(60,19): warning C4305: 'return': truncation from 'double' to 'float'
   (compiling source file '/test.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Geometry.h(234,58): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\u5632744\Desktop\test-AdvCG\RTBase\Geometry.h(290,58): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
   (compiling source file '/test.cpp')
   
-  Testing.vcxproj -> C:\Users\xpto7\OneDrive\Desktop\AdvCG\x64\Debug\Testing.exe
+  Testing.vcxproj -> C:\Users\u5632744\Desktop\test-AdvCG\x64\Debug\Testing.exe

@@ -51,11 +51,30 @@ public:
 	BVHNode* bvh = NULL;
 	Camera camera;
 	AABB bounds;
+
 	void build()
 	{
 
+		// Free existing BVH if any
+		if (bvh)
+		{
+			delete bvh;
+			bvh = nullptr;
+		}
+
 		bvh = new BVHNode();
-		bvh->build(triangles);
+
+		// Create a list of indices for all triangles
+		std::vector<int> indices(triangles.size());
+		for (int i = 0; i < triangles.size(); i++)
+		{
+			indices[i] = i;
+		}
+
+		std::cout << "Number of Triangles passed in: " << triangles.size() << std::endl;
+
+		// Build the BVH using the indices
+		bvh->build(triangles, indices, 0);
 
 		// Do not touch the code below this line!
 		// Build light list
@@ -97,7 +116,9 @@ public:
 	}
 	Light* sampleLight(Sampler* sampler, float& pmf)
 	{
-		return NULL;
+		float r1 = sampler->next();
+		pmf = 1.f / (float)lights.size();
+		return lights[std::min((int)(r1 * lights.size()), (int)(lights.size() - 1))];
 	}
 	// Do not modify any code below this line
 	void init(std::vector<Triangle> meshTriangles, std::vector<BSDF*> meshMaterials, Light* _background)
