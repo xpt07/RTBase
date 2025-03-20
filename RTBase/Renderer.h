@@ -39,17 +39,17 @@ public:
 	}
 	Colour computeDirect(ShadingData shadingData, Sampler* sampler)
 	{
-		// Is surface is specular we cannot computing direct lighting
 		if (shadingData.bsdf->isPureSpecular() == true)
 		{
 			return Colour(0.0f, 0.0f, 0.0f);
 		}
-		// Compute direct lighting here
-		float pmf, pdf;
-		Colour emittedColour;
+		// Sample a light
+		float pmf;
 		Light* light = scene->sampleLight(sampler, pmf);
-		Vec3 p = light->sample(shadingData, sampler, emittedColour, pdf);
-
+		// Sample a point on the light
+		float pdf;
+		Colour emitted;
+		Vec3 p = light->sample(shadingData, sampler, emitted, pdf);
 		if (light->isArea())
 		{
 			// Calculate GTerm
@@ -57,12 +57,13 @@ public:
 			float l = wi.lengthSq();
 			wi = wi.normalize();
 			float GTerm = (max(Dot(wi, shadingData.sNormal), 0.0f) * max(-Dot(wi, light->normal(shadingData, wi)), 0.0f)) / l;
-
-			if (GTerm > 0) {
+			if (GTerm > 0)
+			{
 				// Trace
-				if (scene->visible(shadingData.x, p)) {
+				if (scene->visible(shadingData.x, p))
+				{
 					// Shade
-					return shadingData.bsdf->evaluate(shadingData, wi) * emittedColour * GTerm / (pmf * pdf);
+					return shadingData.bsdf->evaluate(shadingData, wi) * emitted * GTerm / (pmf * pdf);
 				}
 			}
 		}
@@ -77,7 +78,7 @@ public:
 				if (scene->visible(shadingData.x, shadingData.x + (p * 10000.0f)))
 				{
 					// Shade
-					return shadingData.bsdf->evaluate(shadingData, wi) * emittedColour * GTerm / (pmf * pdf);
+					return shadingData.bsdf->evaluate(shadingData, wi) * emitted * GTerm / (pmf * pdf);
 				}
 			}
 		}

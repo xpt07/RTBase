@@ -237,7 +237,7 @@ struct IntersectionData
 	float gamma;
 };
 
-#define MAXNODE_TRIANGLES 32
+#define MAXNODE_TRIANGLES 8
 #define TRAVERSE_COST 1.0f
 #define TRIANGLE_COST 2.0f
 #define BUILD_BINS 32
@@ -288,7 +288,7 @@ public:
 			bounds.extend(triangles[i]);
 
 		// Stop if max depth is reached or few triangles remain
-		if (indices.size() <= MAXNODE_TRIANGLES)
+		if (indices.size() <= MAXNODE_TRIANGLES || depth >= MAX_DEPTH)
 		{
 			triangleIndices = indices;
 
@@ -371,8 +371,7 @@ public:
 
 	void traverse(const Ray& ray, const std::vector<Triangle>& triangles, IntersectionData& intersection)
 	{
-		float tHit;
-		if (!bounds.rayAABB(ray, tHit) || tHit > intersection.t)
+		if (!bounds.rayAABB(ray))
 			return;
 
 		if (!left && !right) {
@@ -381,9 +380,9 @@ public:
 				if (triangles[idx].rayIntersect(ray, t, u, v) && t < intersection.t) {
 					intersection.t = t;
 					intersection.ID = idx;
-					intersection.alpha = 1.0f - u - v;
-					intersection.beta = u;
-					intersection.gamma = v;
+					intersection.alpha = u;
+					intersection.beta = v;
+					intersection.gamma = 1.0f - (u + v);
 				}
 			}
 		}
@@ -401,8 +400,7 @@ public:
 	}
 	bool traverseVisible(const Ray& ray, const std::vector<Triangle>& triangles, const float maxT)
 	{
-		float tHit;
-		if (!bounds.rayAABB(ray, tHit) || tHit > maxT)
+		if (!bounds.rayAABB(ray))
 			return false;
 
 		if (!left && !right)
@@ -410,8 +408,13 @@ public:
 			for (int idx : triangleIndices)
 			{
 				float t, u, v;
-				if (triangles[idx].rayIntersect(ray, t, u, v) && t < maxT)
-					return false; // Occluded
+				if (triangles[idx].rayIntersect(ray, t, u, v)) 
+				{
+					if (t < maxT)
+					{
+						return false;
+					}
+				}
 			}
 			return true;
 		}

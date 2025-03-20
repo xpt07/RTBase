@@ -1,4 +1,3 @@
-
 #define DEBUG_BVH
 #include "GEMLoader.h"
 #include "Renderer.h"

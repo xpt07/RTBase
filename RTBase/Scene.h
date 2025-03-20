@@ -166,7 +166,22 @@ public:
 		float maxT = dir.length() - (2.0f * EPSILON);
 		dir = dir.normalize();
 		ray.init(p1 + (dir * EPSILON), dir);
-		return bvh->traverseVisible(ray, triangles, maxT);
+		//return bvh->traverseVisible(ray, triangles, maxT);
+
+		for (int i = 0; i < triangles.size(); i++)
+		{
+			float t;
+			float u;
+			float v;
+			if (triangles[i].rayIntersect(ray, t, u, v))
+			{
+				if (t < maxT)
+				{
+					return false;
+				}
+			}
+		}
+		return true;
 	}
 	Colour emit(Triangle* light, ShadingData shadingData, Vec3 wi)
 	{
