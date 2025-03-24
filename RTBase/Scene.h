@@ -15,16 +15,25 @@ public:
 	float width = 0;
 	float height = 0;
 	Vec3 origin;
+	Vec3 viewDirection;
+	float Afilm;
 	void init(Matrix ProjectionMatrix, int screenwidth, int screenheight)
 	{
 		inverseProjectionMatrix = ProjectionMatrix.invert();
 		width = (float)screenwidth;
 		height = (float)screenheight;
+		float Wlens = (2.0f / ProjectionMatrix.a[1][1]);
+		float aspect = ProjectionMatrix.a[0][0] / ProjectionMatrix.a[1][1];
+		float Hlens = Wlens * aspect;
+		Afilm = Wlens * Hlens;
 	}
 	void updateView(Matrix V)
 	{
 		camera = V;
 		origin = camera.mulPoint(Vec3(0, 0, 0));
+		viewDirection = inverseProjectionMatrix.mulPointAndPerspectiveDivide(Vec3(0, 0, 1));
+		viewDirection = camera.mulVec(viewDirection);
+		viewDirection = viewDirection.normalize();
 	}
 
 	Ray generateRay(float x, float y)
