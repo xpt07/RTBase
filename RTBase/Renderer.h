@@ -184,6 +184,83 @@ public:
 		}
 		return Colour(0.0f, 0.0f, 0.0f);
 	}
+
+	void connectTocamera(Vec3 p, Vec3 n, Colour col) {
+		float x, y;
+		if (!scene->camera.projectOntoCamera(p, x, y))
+			return;
+
+		if (!scene->visible(p, scene->camera.origin)) 
+			return;
+
+		Vec3 wi = scene->camera.origin - p;
+		float distanceSquared = wi.lengthSq();
+		wi = wi.normalize();
+
+		float G = max(Dot(wi, n), 0.0f) * max(Dot(scene->camera.viewDirection, -wi), 0.0f) / distanceSquared;
+		if (G <= 0.0f)
+			return;
+
+		Colour camerContribution = col * G;
+		film->splat(x, y, camerContribution);
+	}
+
+	void lightTracePath(Ray& r, Colour& pathThroughput, Colour& Le, Sampler* sampler)
+	{
+		for (int depth = 0; depth < MAX_DEPTH; depth++)
+		{
+			IntersectionData intersection = scene->traverse(r);
+			ShadingData shadingData = scene->calculateShadingData(intersection, r);
+			if (shadingData.t >= FLT_MAX)
+				break;
+
+			Vec3 camWi = (scene->camera.origin - shadingData.x).normalize();
+			float camPdf = shadingData.bsdf->PDF(shadingData, camWi);
+			Colour bsdf = shadingData.bsdf->evaluate(shadingData, camWi);
+			float cosTheta = max(Dot(shadingData.sNormal, camWi), 0.0f);
+
+			Colour cameraCol = pathThroughput * bsdf * Le;
+			connectTocamera(shadingData.x, shadingData.sNormal, cameraCol);
+
+			// Russian Roulette
+			if (depth > 3)
+			{
+				float rrProb = min(pathThroughput.Lum(), 0.9f);
+				if (sampler->next() > rrProb) break;
+				pathThroughput = pathThroughput / rrProb;
+			}
+
+			Colour sampleCol;
+			float pdf;
+			Vec3 wi = shadingData.bsdf->sample(shadingData, sampler, sampleCol, pdf);
+			if (pdf <= 0.0f) break;
+
+			float cosWi = fabsf(Dot(wi, shadingData.sNormal));
+			pathThroughput = pathThroughput * sampleCol * cosTheta / pdf;
+
+			r = Ray(shadingData.x + (wi * EPSILON), wi);
+		}
+	}
+
+	void lightTrace(Sampler* sampler) 
+	{
+		float pdfPos, pdfDir;
+		float lightPmf;
+		Light* light = scene->sampleLight(sampler, lightPmf);
+
+		Vec3 p = light->samplePositionFromLight(sampler, pdfPos);
+		Vec3 wi = light->sampleDirectionFromLight(sampler, pdfDir);
+
+		if (pdfPos <= 0.0f || pdfDir <= 0.0f)
+			return;
+
+		Colour Le = light->evaluate(-wi);
+		Colour throughput = Le / (pdfPos * lightPmf);
+
+		Ray r(p + (wi * EPSILON), wi);	// Create a ray from the light source
+		lightTracePath(r, throughput, Le, sampler);
+	}
+
 	void render()
 	{
 		film->incrementSPP();
@@ -219,6 +296,8 @@ public:
 						// Get the random sampler for this thread
 						MTRandom* sampler = &samplers[i];
 
+						//lightTrace(sampler);	// Light tracing
+
 						// Render all pixels in [startX,endX) x [startY,endY)
 						for (int y = startY; y < endY; y++)
 						{
@@ -241,7 +320,6 @@ public:
 							}
 						}
 						//canvas->present();
-
 					}
 				});
 		}
