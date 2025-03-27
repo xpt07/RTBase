@@ -55,10 +55,10 @@ public:
 		// Add code here
 		return Colour(1.0f, 1.0f, 1.0f);
 	}
-	static Colour fresnelConductor(float cosTheta, Colour ior, Colour k)
+	static float lambdaGGX(Vec3 wi, float alpha)
 	{
 		// Add code here
-		return Colour(1.0f, 1.0f, 1.0f);
+		return 1.0f;
 	}
 	static float Gggx(Vec3 wi, Vec3 wo, float alpha)
 	{
