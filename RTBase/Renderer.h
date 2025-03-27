@@ -105,11 +105,20 @@ public:
 			{
 				return direct;
 			}
-			Colour bsdf;
+
+			Colour sampledColour;
 			float bsdfPdf;
-			Vec3 wi = shadingData.bsdf->sample(shadingData, sampler, bsdf, bsdfPdf);
-			bsdf = shadingData.bsdf->evaluate(shadingData, wi);
-			pathThroughput = pathThroughput * bsdf * fabsf(Dot(wi, shadingData.sNormal)) / bsdfPdf;
+			Vec3 wi = shadingData.bsdf->sample(shadingData, sampler, sampledColour, bsdfPdf);
+
+			if (!shadingData.bsdf->isPureSpecular())
+			{
+				Colour bsdf = shadingData.bsdf->evaluate(shadingData, wi);
+				pathThroughput = pathThroughput * bsdf * fabsf(Dot(wi, shadingData.sNormal)) / bsdfPdf;
+			}
+			else
+			{
+				pathThroughput = pathThroughput * sampledColour * fabsf(Dot(wi, shadingData.sNormal)) / bsdfPdf;
+			}
 
 			Ray nextRay(shadingData.x + (wi * EPSILON), wi);
 			IntersectionData hit = scene->traverse(nextRay);
@@ -227,7 +236,7 @@ public:
 								Colour pathT = pathTrace(ray, th, 0, sampler);
 								film->splat(tx, ty, pathT);
 								unsigned char r, g, b;
-								film->tonemap(x, y, r, g, b);
+								film->FilmicTonemap(x, y, r, g, b);
 								canvas->draw(x, y, r, g, b);
 							}
 						}

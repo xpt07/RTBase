@@ -177,6 +177,10 @@ public:
 	}
 };
 
+inline Vec3 operator*(float scalar, const Vec3& v) {
+	return Vec3(v.x * scalar, v.y * scalar, v.z * scalar);
+}
+
 static float Dot(const Vec3 v1, const Vec3 v2)
 {
 	return ((v1.x * v2.x) + (v1.y * v2.y) + (v1.z * v2.z));

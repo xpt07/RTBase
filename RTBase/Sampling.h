@@ -10,17 +10,20 @@ public:
 	virtual float next() = 0;
 };
 
+#define EPSILON 0.001f
+
 class MTRandom : public Sampler
 {
 public:
 	std::mt19937 generator;
 	std::uniform_real_distribution<float> dist;
-	MTRandom(unsigned int seed = 1) : dist(0.0f, 1.0f)
+	MTRandom(unsigned int seed = 1) : dist(EPSILON, 1.0f)
 	{
 		generator.seed(seed);
 	}
 	float next()
 	{
+		
 		return dist(generator);
 	}
 };
