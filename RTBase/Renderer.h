@@ -308,71 +308,101 @@ public:
 	{
 		film->incrementSPP();
 
-		const int tileSize = 16;
+		int spp = 1; // samples per pixel — make this configurable later
+		int totalRays = film->width * film->height * spp;
+		int raysPerThread = totalRays / numProcs;
 
-		int Nx = (film->width + tileSize - 1) / tileSize;
-		int Ny = (film->height + tileSize - 1) / tileSize;
-		int totalTiles = Nx * Ny;
-
-		std::atomic<int> nextTileindex(0);
-
-		// One thread per processor
+		// === Light Tracing ===
 		for (int i = 0; i < numProcs; i++) {
 			threads[i] = new std::thread([&, i]()
 				{
-					// Loop each thread until no more tiles
-					while (true) {
-						// Grab the next tile index
-						int tileIndex = nextTileindex.fetch_add(1);
-						if (tileIndex >= totalTiles) break;
-
-						// Convert that 1D tile index into (tileX, tileY)
-						int tileX = tileIndex % Nx;
-						int tileY = tileIndex / Nx;
-
-						// Compute the pixel range for this tile
-						int startX = tileX * tileSize;
-						int startY = tileY * tileSize;
-						int endX = min(startX + tileSize, (int)film->width);
-						int endY = min(startY + tileSize, (int)film->height);
-
-						// Get the random sampler for this thread
-						MTRandom* sampler = &samplers[i];
-					
-						// Perform light tracing only
-						for (int l = 0; l < 1; l++)
-							lightTrace(sampler);
-
-						// Render all pixels in [startX,endX) x [startY,endY)
-						for (int y = startY; y < endY; y++)
-						{
-							for (int x = startX; x < endX; x++)
-							{
-								////float px = x + 0.5f;
-								////float py = y + 0.5f;
-								//float tx = x + sampler->next();
-								//float ty = y + sampler->next();
-								//Ray ray = scene->camera.generateRay(tx, ty);
-								////Colour norm = viewNormals(ray);
-								////Colour alb = albedo(ray);
-								////Colour dir = direct(ray, sampler);
-								//Colour th(1.0f,1.0f,1.0f);
-								//Colour pathT = pathTrace(ray, th, 0, sampler);
-								//film->splat(tx, ty, pathT);
-								unsigned char r, g, b;
-								film->FilmicTonemap(x, y, r, g, b);
-								canvas->draw(x, y, r, g, b);
-							}
-						}
+					MTRandom* sampler = &samplers[i];
+					for (int j = 0; j < raysPerThread; ++j) {
+						lightTrace(sampler);
 					}
 				});
 		}
-		for (int i = 0; i < numProcs; i++)
-		{
+
+		for (int i = 0; i < numProcs; i++) {
 			threads[i]->join();
 			delete threads[i];
 		}
+
+		// === Tonemapping ===
+		for (int y = 0; y < (int)film->height; y++) {
+			for (int x = 0; x < (int)film->width; x++) {
+				unsigned char r, g, b;
+				film->FilmicTonemap(x, y, r, g, b);
+				canvas->draw(x, y, r, g, b);
+			}
+		}
 	}
+
+	//void render()
+	//{
+	//	film->incrementSPP();
+
+	//	const int tileSize = 16;
+
+	//	int Nx = (film->width + tileSize - 1) / tileSize;
+	//	int Ny = (film->height + tileSize - 1) / tileSize;
+	//	int totalTiles = Nx * Ny;
+
+	//	std::atomic<int> nextTileindex(0);
+
+	//	// One thread per processor
+	//	for (int i = 0; i < numProcs; i++) {
+	//		threads[i] = new std::thread([&, i]()
+	//			{
+	//				// Loop each thread until no more tiles
+	//				while (true) {
+	//					// Grab the next tile index
+	//					int tileIndex = nextTileindex.fetch_add(1);
+	//					if (tileIndex >= totalTiles) break;
+
+	//					// Convert that 1D tile index into (tileX, tileY)
+	//					int tileX = tileIndex % Nx;
+	//					int tileY = tileIndex / Nx;
+
+	//					// Compute the pixel range for this tile
+	//					int startX = tileX * tileSize;
+	//					int startY = tileY * tileSize;
+	//					int endX = min(startX + tileSize, (int)film->width);
+	//					int endY = min(startY + tileSize, (int)film->height);
+
+	//					// Get the random sampler for this thread
+	//					MTRandom* sampler = &samplers[i];
+
+	//					// Render all pixels in [startX,endX) x [startY,endY)
+	//					for (int y = startY; y < endY; y++)
+	//					{
+	//						for (int x = startX; x < endX; x++)
+	//						{
+	//							//float px = x + 0.5f;
+	//							//float py = y + 0.5f;
+	//							float tx = x + sampler->next();
+	//							float ty = y + sampler->next();
+	//							Ray ray = scene->camera.generateRay(tx, ty);
+	//							//Colour norm = viewNormals(ray);
+	//							//Colour alb = albedo(ray);
+	//							//Colour dir = direct(ray, sampler);
+	//							Colour th(1.0f,1.0f,1.0f);
+	//							Colour pathT = pathTrace(ray, th, 0, sampler);
+	//							film->splat(tx, ty, pathT);
+	//							unsigned char r, g, b;
+	//							film->FilmicTonemap(x, y, r, g, b);
+	//							canvas->draw(x, y, r, g, b);
+	//						}
+	//					}
+	//				}
+	//			});
+	//	}
+	//	for (int i = 0; i < numProcs; i++)
+	//	{
+	//		threads[i]->join();
+	//		delete threads[i];
+	//	}
+	//}
 	int getSPP()
 	{
 		return film->SPP;
