@@ -310,10 +310,11 @@ public:
 			Colour sampledColour;
 			float pdf;
 			Vec3 nextWi = shadingData.bsdf->sample(shadingData, sampler, sampledColour, pdf);
-			if (pdf <= 0.0f)
+			if (pdf <= EPSILON)
 				break;
 
 			float cosTheta = fabsf(Dot(nextWi, shadingData.sNormal));
+
 			pathThroughput = pathThroughput * sampledColour * cosTheta / pdf;
 
 			// Trace next ray
