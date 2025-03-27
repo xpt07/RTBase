@@ -60,10 +60,6 @@ public:
 		// Add code here
 		return Colour(1.0f, 1.0f, 1.0f);
 	}
-	static float lambdaGGX(Vec3 wi, float alpha)
-	{
-
-	}
 	static float Gggx(Vec3 wi, Vec3 wo, float alpha)
 	{
 		// Add code here
