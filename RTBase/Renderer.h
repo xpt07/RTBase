@@ -11,10 +11,9 @@
 #include <thread>
 #include <functional>
 
-struct VPL {
-	ShadingData shadingData;
-	Colour Le;
-};
+bool isFiniteColour(const Colour& c) {
+	return std::isfinite(c.r) && std::isfinite(c.g) && std::isfinite(c.b);
+}
 
 class RayTracer
 {
@@ -25,10 +24,6 @@ public:
 	MTRandom *samplers;
 	std::thread **threads;
 	int numProcs;
-
-	std::vector<VPL> vpls;
-	const int N_VPLS = 512;
-
 
 	void init(Scene* _scene, GamesEngineeringBase::Window* _canvas)
 	{
@@ -47,64 +42,6 @@ public:
 	{
 		film->clear();
 	}
-
-	void VPLTracePath(Ray r, Colour pathThroughput, Colour Le, Sampler* sampler)
-	{
-		for (int depth = 0; depth < MAX_DEPTH; ++depth)
-		{
-			IntersectionData id = scene->traverse(r);
-			if (id.t >= FLT_MAX) break;
-
-			ShadingData sd = scene->calculateShadingData(id, r);
-			if (sd.bsdf->isLight()) break;
-
-			VPL vpl;
-			vpl.shadingData = sd;
-			vpl.Le = pathThroughput * Le;
-			vpls.push_back(vpl);
-
-			float rr = min(pathThroughput.Lum(), 0.9f);
-			if (sampler->next() > rr) break;
-			pathThroughput = pathThroughput / rr;
-
-			Colour sampled;
-			float pdf;
-			Vec3 nextWi = sd.bsdf->sample(sd, sampler, sampled, pdf);
-			if (pdf <= 0) break;
-
-			float cosTheta = fabsf(Dot(nextWi, sd.sNormal));
-			pathThroughput = pathThroughput * sampled * cosTheta / pdf;
-			r = Ray(sd.x + nextWi * EPSILON, nextWi);
-		}
-	}
-
-
-	void traceVPLs(Sampler* sampler, int N)
-	{
-		vpls.clear();
-
-		for (int i = 0; i < N; ++i)
-		{
-			float pmf;
-			Light* light = scene->sampleLight(sampler, pmf);
-			if (!light) continue;
-
-			float pdfPos, pdfDir;
-			Vec3 pos = light->samplePositionFromLight(sampler, pdfPos);
-			Vec3 dir = light->sampleDirectionFromLight(sampler, pdfDir);
-			if (pdfPos <= 0 || pdfDir <= 0) continue;
-
-			Colour emitted = light->evaluate(-dir);
-			float weight = Dot(dir, light->normal({}, dir));
-			if (weight <= 0) continue;
-
-			Colour Le = emitted * weight / (pmf * pdfPos * pdfDir * N);
-
-			Ray ray(pos + dir * EPSILON, dir);
-			VPLTracePath(ray, Le, Le, sampler);
-		}
-	}
-
 
 	Colour computeDirect(ShadingData shadingData, Sampler* sampler)
 	{
@@ -265,14 +202,13 @@ public:
 		Vec3 wi = (scene->camera.origin - p).normalize();
 		float distance2 = (scene->camera.origin - p).lengthSq();
 		float cosTheta = Dot(n, wi);
-		if (cosTheta <= 0.0f)
-			return;
+		if (cosTheta <= 0.0f || distance2 < EPSILON) return;
 
-		// G = cos(theta) / distance^2
 		float G = cosTheta / distance2;
 
-		// Splat the weighted radiance to film
-		film->splat(px, py, col * G);
+		Colour contrib = col * G;
+		if (!isFiniteColour(contrib) || contrib.Lum() > 100.0f) return;
+		film->splat(px, py, contrib);
 	}
 
 	void lightTracePath(Ray& r, Colour pathThroughput, Colour Le, Sampler* sampler)
@@ -284,23 +220,26 @@ public:
 				break;
 
 			ShadingData shadingData = scene->calculateShadingData(intersection, r);
-
 			if (shadingData.bsdf->isLight())
 				break;
 
-			// Try connecting the current point to the camera
+			// connecting the current point to the camera
 			Vec3 toCamera = scene->camera.origin - shadingData.x;
 			Vec3 wi = toCamera.normalize();
 
 			if (!shadingData.bsdf->isPureSpecular() && scene->visible(shadingData.x + wi * EPSILON, scene->camera.origin))
 			{
 				Colour f = shadingData.bsdf->evaluate(shadingData, wi);
-				Colour contribution = pathThroughput * f * Le;
-				connectToCamera(shadingData.x, shadingData.sNormal, contribution);
+				float bsdfPdf = shadingData.bsdf->PDF(shadingData, wi);
+				float cameraPdf = 1.0f;
+				float misWeight = bsdfPdf / (bsdfPdf + cameraPdf);
+				Colour contrib = pathThroughput * f * Le * misWeight;
+				if (isFiniteColour(contrib) && contrib.Lum() <= 100.0f)
+					connectToCamera(shadingData.x, shadingData.sNormal, contrib);
 			}
 
 			// Russian Roulette termination
-			float rrProb = min(pathThroughput.Lum(), 0.9f);
+			float rrProb = max(min(pathThroughput.Lum(), 0.9f), 0.1f);
 			if (sampler->next() > rrProb)
 				break;
 
@@ -313,11 +252,11 @@ public:
 			if (pdf <= EPSILON)
 				break;
 
-			float cosTheta = fabsf(Dot(nextWi, shadingData.sNormal));
+			float cosTheta = max(Dot(nextWi, shadingData.sNormal), 0.0f);
+			Colour newTP = pathThroughput * sampledColour * cosTheta / pdf;
+			if (!isFiniteColour(newTP) || newTP.Lum() > 100.0f) break;
 
-			pathThroughput = pathThroughput * sampledColour * cosTheta / pdf;
-
-			// Trace next ray
+			pathThroughput = newTP;
 			r = Ray(shadingData.x + nextWi * EPSILON, nextWi);
 		}
 	}
@@ -327,13 +266,13 @@ public:
 	{
 		float pmf;
 		Light* light = scene->sampleLight(sampler, pmf);
-		if (!light) return;
+		if (!light || pmf <= 0.0f) return;
 
 		float pdfPosition, pdfDirection;
 		Vec3 position = light->samplePositionFromLight(sampler, pdfPosition);
 		Vec3 direction = light->sampleDirectionFromLight(sampler, pdfDirection);
 
-		if (pdfPosition <= 0.0f || pdfDirection <= 0.0f) return;
+		if (pdfPosition <= EPSILON || pdfDirection <= EPSILON) return;
 
 		Vec3 normal;
 		if (light->isArea())
@@ -349,7 +288,10 @@ public:
 			normal = -direction;
 		}
 
-		Colour Le = light->evaluate(-direction) / pdfPosition;
+		Colour emitted = light->evaluate(-direction);
+		float cosTheta = max(Dot(normal, direction), 0.0f);
+		Colour Le = emitted * cosTheta / pdfPosition;
+		if (!isFiniteColour(Le) || Le.Lum() > 100.0f) return;
 
 		// Attempt to connect light position directly to the camera
 		connectToCamera(position, normal, Le);
@@ -357,6 +299,7 @@ public:
 		// Fire a ray into the scene from the light
 		Ray ray(position + direction * EPSILON, direction);
 		Colour pathThroughput = Le / pdfDirection;
+		if (!isFiniteColour(pathThroughput) || pathThroughput.Lum() > 100.0f) return;
 
 		lightTracePath(ray, pathThroughput, Le, sampler);
 	}
@@ -373,11 +316,7 @@ public:
 
 		std::atomic<int> nextTileindex(0);
 
-		//// First pass: trace VPLs
-		//traceVPLs(&samplers[0], N_VPLS);
-
 		// One thread per processor
-		// Second pass: parallel render loop
 		for (int i = 0; i < numProcs; i++) {
 			threads[i] = new std::thread([&, i]()
 				{
@@ -399,43 +338,7 @@ public:
 
 						// Get the random sampler for this thread
 						MTRandom* sampler = &samplers[i];
-
-						//for (int y = startY; y < endY; y++) {
-						//	for (int x = startX; x < endX; x++) {
-						//		float tx = x + sampler->next();
-						//		float ty = y + sampler->next();
-						//		Ray ray = scene->camera.generateRay(tx, ty);
-						//		IntersectionData isect = scene->traverse(ray);
-						//		ShadingData shadingData = scene->calculateShadingData(isect, ray);
-
-						//		Colour indirect(0.0f, 0.0f, 0.0f);
-
-						//		if (shadingData.t < FLT_MAX && !shadingData.bsdf->isLight()) {
-						//			for (const VPL& vpl : vpls) {
-						//				Vec3 wi = (vpl.shadingData.x - shadingData.x).normalize();
-						//				if (Dot(shadingData.sNormal, wi) <= 0.0f) continue;
-						//				if (Dot(vpl.shadingData.sNormal, -wi) <= 0.0f) continue;
-						//				if (!scene->visible(shadingData.x, vpl.shadingData.x)) continue;
-
-						//				Colour f1 = shadingData.bsdf->evaluate(shadingData, wi);
-						//				Colour f2 = vpl.shadingData.bsdf->evaluate(vpl.shadingData, -wi);
-						//				float distance2 = (vpl.shadingData.x - shadingData.x).lengthSq();
-						//				float G = (Dot(shadingData.sNormal, wi) * -Dot(vpl.shadingData.sNormal, wi)) / distance2;
-						//				indirect = indirect + f1 * f2 * vpl.Le * max(G, 0.0f);
-						//			}
-						//		}
-
-						//		Colour directLight = computeDirect(shadingData, sampler);
-
-						//		film->splat(tx, ty, directLight + indirect);
-
-						//		unsigned char r, g, b;
-						//		film->FilmicTonemap(x, y, r, g, b);
-						//		canvas->draw(x, y, r, g, b);
-						//	}
-						//}
 					
-
 						// Perform light tracing only
 						for (int l = 0; l < 1; l++)
 							lightTrace(sampler);
