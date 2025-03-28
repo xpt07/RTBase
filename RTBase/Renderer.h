@@ -328,15 +328,6 @@ public:
 			delete threads[i];
 		}
 
-		// === Tonemapping ===
-		for (int y = 0; y < (int)film->height; y++) {
-			for (int x = 0; x < (int)film->width; x++) {
-				unsigned char r, g, b;
-				film->FilmicTonemap(x, y, r, g, b);
-				canvas->draw(x, y, r, g, b);
-			}
-		}
-
 		const int tileSize = 16;
 
 		int Nx = (film->width + tileSize - 1) / tileSize;
