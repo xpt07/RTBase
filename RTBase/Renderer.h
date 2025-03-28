@@ -274,10 +274,11 @@ public:
 
 		if (pdfPosition <= EPSILON || pdfDirection <= EPSILON) return;
 
-		ShadingData dummy;
-		dummy.x = position;
-		dummy.wo = -direction;
-		Vec3 normal = light->normal(dummy, direction);
+		ShadingData shadingData;
+		shadingData.x = position;
+		shadingData.wo = -direction;
+
+		Vec3 normal = light->normal(shadingData, direction);
 
 		Colour emitted = light->evaluate(-direction);
 		float cosTheta = max(Dot(normal, direction), 0.0f);
