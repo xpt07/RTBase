@@ -274,19 +274,10 @@ public:
 
 		if (pdfPosition <= EPSILON || pdfDirection <= EPSILON) return;
 
-		Vec3 normal;
-		if (light->isArea())
-		{
-			ShadingData dummy;
-			dummy.x = position;
-			dummy.wo = -direction;
-			normal = light->normal(dummy, direction);
-		}
-		else
-		{
-			// Environment or other lights use opposite of direction
-			normal = -direction;
-		}
+		ShadingData dummy;
+		dummy.x = position;
+		dummy.wo = -direction;
+		Vec3 normal = light->normal(dummy, direction);
 
 		Colour emitted = light->evaluate(-direction);
 		float cosTheta = max(Dot(normal, direction), 0.0f);
