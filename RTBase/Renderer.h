@@ -217,7 +217,14 @@ public:
 		{
 			IntersectionData intersection = scene->traverse(r);
 			if (intersection.t >= FLT_MAX)
+			{
+				if (scene->background)
+				{
+					Colour envLe = scene->background->evaluate(r.dir);
+					connectToCamera(r.o, r.dir, pathThroughput * envLe);
+				}
 				break;
+			}
 
 			ShadingData shadingData = scene->calculateShadingData(intersection, r);
 			if (shadingData.bsdf->isLight())
@@ -274,11 +281,16 @@ public:
 
 		if (pdfPosition <= EPSILON || pdfDirection <= EPSILON) return;
 
-		ShadingData shadingData;
-		shadingData.x = position;
-		shadingData.wo = -direction;
-
-		Vec3 normal = light->normal(shadingData, direction);
+		Vec3 normal;
+		if (light->isArea())
+		{
+			AreaLight* area = static_cast<AreaLight*>(light);
+			normal = area->triangle->gNormal();
+		}
+		else
+		{
+			normal = -direction;
+		}
 
 		Colour emitted = light->evaluate(-direction);
 		float cosTheta = max(Dot(normal, direction), 0.0f);
