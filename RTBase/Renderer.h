@@ -304,7 +304,7 @@ public:
 		int totalRays = film->width * film->height * spp;
 		int raysPerThread = totalRays / numProcs;
 
-		// === Light Tracing ===
+		// Light Tracing
 		for (int i = 0; i < numProcs; i++) {
 			threads[i] = new std::thread([&, i]()
 				{
@@ -321,11 +321,9 @@ public:
 		}
 
 		const int tileSize = 16;
-
 		int Nx = (film->width + tileSize - 1) / tileSize;
 		int Ny = (film->height + tileSize - 1) / tileSize;
 		int totalTiles = Nx * Ny;
-
 		std::atomic<int> nextTileindex(0);
 
 		// One thread per processor
@@ -348,8 +346,8 @@ public:
 						int endX = min(startX + tileSize, (int)film->width);
 						int endY = min(startY + tileSize, (int)film->height);
 
-						// Get the random sampler for this thread
-						MTRandom* sampler = &samplers[i];
+						//// Get the random sampler for this thread
+						//MTRandom* sampler = &samplers[i];
 
 						// Render all pixels in [startX,endX) x [startY,endY)
 						for (int y = startY; y < endY; y++)
