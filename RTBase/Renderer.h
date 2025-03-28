@@ -205,9 +205,9 @@ public:
 		if (cosTheta <= 0.0f || distance2 < EPSILON) return;
 
 		float G = cosTheta / distance2;
-
 		Colour contrib = col * G;
-		if (!isFiniteColour(contrib) || contrib.Lum() > 100.0f) return;
+
+		if (!isFiniteColour(contrib)) return;
 		film->splat(px, py, contrib);
 	}
 
@@ -275,35 +275,32 @@ public:
 		Light* light = scene->sampleLight(sampler, pmf);
 		if (!light || pmf <= 0.0f) return;
 
-		float pdfPosition, pdfDirection;
-		Vec3 position = light->samplePositionFromLight(sampler, pdfPosition);
-		Vec3 direction = light->sampleDirectionFromLight(sampler, pdfDirection);
+		float pdfPos, pdfDir;
+		Vec3 position = light->samplePositionFromLight(sampler, pdfPos);
+		Vec3 direction = light->sampleDirectionFromLight(sampler, pdfDir);
+		if (pdfPos <= EPSILON || pdfDir <= EPSILON) return;
 
-		if (pdfPosition <= EPSILON || pdfDirection <= EPSILON) return;
-
-		Vec3 normal;
-		if (light->isArea())
-		{
-			AreaLight* area = static_cast<AreaLight*>(light);
-			normal = area->triangle->gNormal();
-		}
-		else
-		{
-			normal = -direction;
-		}
+		ShadingData sd;
+		sd.x = position;
+		sd.wo = -direction;
+		Vec3 normal = light->normal(sd, direction);
 
 		Colour emitted = light->evaluate(-direction);
 		float cosTheta = max(Dot(normal, direction), 0.0f);
-		Colour Le = emitted * cosTheta / pdfPosition;
-		if (!isFiniteColour(Le) || Le.Lum() > 100.0f) return;
+
+		float totalPdf = pmf * pdfPos * pdfDir;
+		if (totalPdf <= EPSILON) return;
+
+		Colour Le = emitted * cosTheta / totalPdf;
+		if (!isFiniteColour(Le)) return;
 
 		// Attempt to connect light position directly to the camera
 		connectToCamera(position, normal, Le);
 
 		// Fire a ray into the scene from the light
 		Ray ray(position + direction * EPSILON, direction);
-		Colour pathThroughput = Le / pdfDirection;
-		if (!isFiniteColour(pathThroughput) || pathThroughput.Lum() > 100.0f) return;
+		Colour pathThroughput = Le / pdfDir;
+		if (!isFiniteColour(pathThroughput)) return;
 
 		lightTracePath(ray, pathThroughput, Le, sampler);
 	}
