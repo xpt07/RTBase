@@ -294,7 +294,7 @@ public:
 
 		Colour emitted = light->evaluate(-direction);
 		float cosTheta = max(Dot(normal, direction), 0.0f);
-		Colour Le = emitted * cosTheta / pdfPosition;
+		Colour Le = emitted * cosTheta / (pdfPosition * pmf);
 		if (!isFiniteColour(Le) || Le.Lum() > 100.0f) return;
 
 		// Attempt to connect light position directly to the camera
