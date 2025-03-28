@@ -207,7 +207,7 @@ public:
 		float G = cosTheta / distance2;
 
 		Colour contrib = col * G;
-		if (/*!isFiniteColour(contrib) || */contrib.Lum() > 100.0f) return;
+		if (!isFiniteColour(contrib) || contrib.Lum() > 100.0f) return;
 		film->splat(px, py, contrib);
 	}
 
@@ -238,7 +238,7 @@ public:
 			{
 				Colour f = shadingData.bsdf->evaluate(shadingData, wi);
 				Colour contrib = pathThroughput * f;
-				if (/*isFiniteColour(contrib) &&*/ contrib.Lum() <= 100.0f)
+				if (isFiniteColour(contrib) && contrib.Lum() <= 100.0f)
 					connectToCamera(shadingData.x, shadingData.sNormal, contrib);
 			}
 
@@ -258,7 +258,7 @@ public:
 
 			float cosTheta = max(Dot(nextWi, shadingData.sNormal), 0.0f);
 			Colour newTP = pathThroughput * sampledColour * cosTheta / pdf;
-			if (/*!isFiniteColour(newTP) ||*/ newTP.Lum() > 100.0f) break;
+			if (!isFiniteColour(newTP) || newTP.Lum() > 100.0f) break;
 
 			pathThroughput = newTP;
 			r = Ray(shadingData.x + nextWi * EPSILON, nextWi);
@@ -292,7 +292,7 @@ public:
 		Colour emitted = light->evaluate(-direction);
 		float cosTheta = max(Dot(normal, direction), 0.0f);
 		Colour Le = emitted * cosTheta / pdfPosition;
-		if (/*!isFiniteColour(Le) ||*/ Le.Lum() > 100.0f) return;
+		if (!isFiniteColour(Le) || Le.Lum() > 100.0f) return;
 
 		// Attempt to connect light position directly to the camera
 		connectToCamera(position, normal, Le);
@@ -300,7 +300,7 @@ public:
 		// Fire a ray into the scene from the light
 		Ray ray(position + direction * EPSILON, direction);
 		Colour pathThroughput = Le / pdfDirection;
-		if (/*!isFiniteColour(pathThroughput) ||*/ pathThroughput.Lum() > 100.0f) return;
+		if (!isFiniteColour(pathThroughput) || pathThroughput.Lum() > 100.0f) return;
 
 		lightTracePath(ray, pathThroughput, sampler);
 	}
