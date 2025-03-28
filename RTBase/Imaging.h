@@ -191,6 +191,13 @@ public:
 	float F = 0.30;
 	float W = 11.2;
 
+	oidn::DeviceRef device;
+	oidn::BufferRef colorBuffer, normalBuffer, albedoBuffer, outputBuffer;
+	Vec3* colorData = nullptr;
+	Vec3* normalData = nullptr;
+	Vec3* albedoData = nullptr;
+	Vec3* outputData = nullptr;
+
 	void splat(const float x, const float y, const Colour& L) {
 		float filterWeights[25]; // Storage to cache weights
 		unsigned int indices[25]; // Store indices to minimize computations 
@@ -241,12 +248,32 @@ public:
 		width = _width;
 		height = _height;
 		film = new Colour[width * height];
-		clear();
 		filter = _filter;
+
+		device = oidn::newDevice();
+		device.commit();
+
+		colorBuffer = device.newBuffer(width * height * sizeof(Vec3));
+		normalBuffer = device.newBuffer(width * height * sizeof(Vec3));
+		albedoBuffer = device.newBuffer(width * height * sizeof(Vec3));
+		outputBuffer = device.newBuffer(width * height * sizeof(Vec3));
+
+		colorData = (Vec3*)colorBuffer.getData();
+		normalData = (Vec3*)normalBuffer.getData();
+		albedoData = (Vec3*)albedoBuffer.getData();
+		outputData = (Vec3*)outputBuffer.getData();
+
+		clear();
 	}
 	void clear()
 	{
 		memset(film, 0, width * height * sizeof(Colour));
+
+		memset(colorData, 0, width * height * sizeof(Vec3));
+		memset(normalData, 0, width * height * sizeof(Vec3));
+		memset(albedoData, 0, width * height * sizeof(Vec3));
+		memset(outputData, 0, width * height * sizeof(Vec3));
+
 		SPP = 0;
 	}
 	void incrementSPP()
@@ -262,5 +289,47 @@ public:
 		}
 		stbi_write_hdr(filename.c_str(), width, height, 3, (float*)hdrpixels);
 		delete[] hdrpixels;
+	}
+	void recordAOVs(int x, int y, Colour colour, Vec3 normal, Colour albedo)
+	{
+		int idx = y * width + x;
+		colorData[idx] = colorData[idx] + Vec3(colour.r, colour.g, colour.b);
+		normalData[idx] = normalData[idx] + normal;
+		albedoData[idx] = albedoData[idx] + Vec3(albedo.r, albedo.g, albedo.b);
+	}
+
+	void finalizeAOVs()
+	{
+		for (unsigned int i = 0; i < width * height; i++) {
+			colorData[i] = colorData[i] / (float)SPP;
+			normalData[i] = normalData[i] / (float)SPP;
+			albedoData[i] = albedoData[i] / (float)SPP;
+			outputData[i] = colorData[i];
+		}
+	}
+
+	void saveDenoisedHDR(const std::string& filename)
+	{
+		oidn::FilterRef filter = device.newFilter("RT");
+		filter.setImage("color", colorBuffer, oidn::Format::Float3, width, height);
+		filter.setImage("normal", normalBuffer, oidn::Format::Float3, width, height);
+		filter.setImage("albedo", albedoBuffer, oidn::Format::Float3, width, height);
+		filter.setImage("output", outputBuffer, oidn::Format::Float3, width, height);
+		filter.set("hdr", true);
+		filter.commit();
+		filter.execute();
+
+		const char* errMsg;
+		if (device.getError(errMsg) != oidn::Error::None)
+			std::cerr << "OIDN ERROR: " << errMsg << std::endl;
+
+		std::vector<float> pixels(width * height * 3);
+		for (unsigned int i = 0; i < width * height; i++)
+		{
+			pixels[i * 3 + 0] = outputData[i].x / (float)SPP;
+			pixels[i * 3 + 1] = outputData[i].y / (float)SPP;
+			pixels[i * 3 + 2] = outputData[i].z / (float)SPP;
+		}
+		stbi_write_hdr(filename.c_str(), width, height, 3, pixels.data());
 	}
 };

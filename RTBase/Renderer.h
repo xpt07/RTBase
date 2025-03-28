@@ -1,5 +1,5 @@
 #pragma once
-
+#include <OpenImageDenoise/oidn.hpp>
 #include "Core.h"
 #include "Sampling.h"
 #include "Geometry.h"
