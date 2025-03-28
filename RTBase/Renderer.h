@@ -211,20 +211,13 @@ public:
 		film->splat(px, py, contrib);
 	}
 
-	void lightTracePath(Ray& r, Colour pathThroughput, Sampler* sampler)
+	void lightTracePath(Ray& r, Colour pathThroughput, Colour Le, Sampler* sampler)
 	{
 		for (int depth = 0; depth < MAX_DEPTH; ++depth)
 		{
 			IntersectionData intersection = scene->traverse(r);
 			if (intersection.t >= FLT_MAX)
-			{
-				if (scene->background)
-				{
-					Colour envLe = scene->background->evaluate(r.dir);
-					connectToCamera(r.o, r.dir, pathThroughput * envLe);
-				}
 				break;
-			}
 
 			ShadingData shadingData = scene->calculateShadingData(intersection, r);
 			if (shadingData.bsdf->isLight())
@@ -237,7 +230,10 @@ public:
 			if (!shadingData.bsdf->isPureSpecular() && scene->visible(shadingData.x + wi * EPSILON, scene->camera.origin))
 			{
 				Colour f = shadingData.bsdf->evaluate(shadingData, wi);
-				Colour contrib = pathThroughput * f;
+				float bsdfPdf = shadingData.bsdf->PDF(shadingData, wi);
+				float cameraPdf = 1.0f;
+				float misWeight = bsdfPdf / (bsdfPdf + cameraPdf);
+				Colour contrib = pathThroughput * f * Le * misWeight;
 				if (isFiniteColour(contrib) && contrib.Lum() <= 100.0f)
 					connectToCamera(shadingData.x, shadingData.sNormal, contrib);
 			}
@@ -282,16 +278,17 @@ public:
 		if (light->isArea())
 		{
 			AreaLight* area = static_cast<AreaLight*>(light);
-			normal = area->triangle->gNormal();
+			normal = area->triangle->gNormal();;
 		}
 		else
 		{
+			// Environment or other lights use opposite of direction
 			normal = -direction;
 		}
 
 		Colour emitted = light->evaluate(-direction);
 		float cosTheta = max(Dot(normal, direction), 0.0f);
-		Colour Le = emitted * cosTheta / (pdfPosition * pmf);;
+		Colour Le = emitted * cosTheta / pdfPosition;
 		if (!isFiniteColour(Le) || Le.Lum() > 100.0f) return;
 
 		// Attempt to connect light position directly to the camera
@@ -302,7 +299,7 @@ public:
 		Colour pathThroughput = Le / pdfDirection;
 		if (!isFiniteColour(pathThroughput) || pathThroughput.Lum() > 100.0f) return;
 
-		lightTracePath(ray, pathThroughput, sampler);
+		lightTracePath(ray, pathThroughput, Le, sampler);
 	}
 
 	void render()
