@@ -211,7 +211,7 @@ public:
 		film->splat(px, py, contrib);
 	}
 
-	void lightTracePath(Ray& r, Colour pathThroughput, Colour Le, Sampler* sampler)
+	void lightTracePath(Ray& r, Colour pathThroughput, Sampler* sampler)
 	{
 		for (int depth = 0; depth < MAX_DEPTH; ++depth)
 		{
@@ -237,10 +237,7 @@ public:
 			if (!shadingData.bsdf->isPureSpecular() && scene->visible(shadingData.x + wi * EPSILON, scene->camera.origin))
 			{
 				Colour f = shadingData.bsdf->evaluate(shadingData, wi);
-				float bsdfPdf = shadingData.bsdf->PDF(shadingData, wi);
-				float cameraPdf = 1.0f;
-				float misWeight = bsdfPdf / (bsdfPdf + cameraPdf);
-				Colour contrib = pathThroughput * f * Le * misWeight;
+				Colour contrib = pathThroughput * f;
 				if (isFiniteColour(contrib) && contrib.Lum() <= 100.0f)
 					connectToCamera(shadingData.x, shadingData.sNormal, contrib);
 			}
@@ -305,7 +302,7 @@ public:
 		Colour pathThroughput = Le / pdfDirection;
 		if (!isFiniteColour(pathThroughput) || pathThroughput.Lum() > 100.0f) return;
 
-		lightTracePath(ray, pathThroughput, Le, sampler);
+		lightTracePath(ray, pathThroughput, sampler);
 	}
 
 	void render()
