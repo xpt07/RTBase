@@ -191,144 +191,144 @@ public:
 		return Colour(0.0f, 0.0f, 0.0f);
 	}
 
-	void connectToCamera(const Vec3& p, const Vec3& n, const Colour& col)
-	{
-		float px, py;
-		// Check if point projects onto camera and get film coordinates
-		if (!scene->camera.projectOntoCamera(p, px, py))
-			return;
+	//void connectToCamera(const Vec3& p, const Vec3& n, const Colour& col)
+	//{
+	//	float px, py;
+	//	// Check if point projects onto camera and get film coordinates
+	//	if (!scene->camera.projectOntoCamera(p, px, py))
+	//		return;
 
-		// Compute geometry term
-		Vec3 wi = (scene->camera.origin - p).normalize();
-		float distance2 = (scene->camera.origin - p).lengthSq();
-		float cosTheta = Dot(n, wi);
-		if (cosTheta <= 0.0f || distance2 < EPSILON) return;
+	//	// Compute geometry term
+	//	Vec3 wi = (scene->camera.origin - p).normalize();
+	//	float distance2 = (scene->camera.origin - p).lengthSq();
+	//	float cosTheta = Dot(n, wi);
+	//	if (cosTheta <= 0.0f || distance2 < EPSILON) return;
 
-		// Visibility check
-		if (!scene->visible(p + wi * EPSILON, scene->camera.origin))
-			return;
+	//	// Visibility check
+	//	if (!scene->visible(p + wi * EPSILON, scene->camera.origin))
+	//		return;
 
-		float G = cosTheta / distance2;
+	//	float G = cosTheta / distance2;
 
-		Colour contrib = col * G;
-		if (!isFiniteColour(contrib) || contrib.Lum() > 100.0f) return;
-		film->splat(px, py, contrib);
-	}
+	//	Colour contrib = col * G;
+	//	if (!isFiniteColour(contrib) || contrib.Lum() > 100.0f) return;
+	//	film->splat(px, py, contrib);
+	//}
 
-	void lightTracePath(Ray& r, Colour pathThroughput, Colour Le, Sampler* sampler)
-	{
-		for (int depth = 0; depth < MAX_DEPTH; ++depth)
-		{
-			IntersectionData intersection = scene->traverse(r);
-			if (intersection.t >= FLT_MAX)
-				break;
+	//void lightTracePath(Ray& r, Colour pathThroughput, Colour Le, Sampler* sampler)
+	//{
+	//	for (int depth = 0; depth < MAX_DEPTH; ++depth)
+	//	{
+	//		IntersectionData intersection = scene->traverse(r);
+	//		if (intersection.t >= FLT_MAX)
+	//			break;
 
-			ShadingData shadingData = scene->calculateShadingData(intersection, r);
-			if (shadingData.bsdf->isLight())
-				break;
+	//		ShadingData shadingData = scene->calculateShadingData(intersection, r);
+	//		if (shadingData.bsdf->isLight())
+	//			break;
 
-			// connecting the current point to the camera
-			Vec3 toCamera = scene->camera.origin - shadingData.x;
-			Vec3 wi = toCamera.normalize();
+	//		// connecting the current point to the camera
+	//		Vec3 toCamera = scene->camera.origin - shadingData.x;
+	//		Vec3 wi = toCamera.normalize();
 
-			if (!shadingData.bsdf->isPureSpecular() && scene->visible(shadingData.x + wi * EPSILON, scene->camera.origin))
-			{
-				Colour f = shadingData.bsdf->evaluate(shadingData, wi);
-				float bsdfPdf = shadingData.bsdf->PDF(shadingData, wi);
-				float cameraPdf = 1.0f;
-				float misWeight = bsdfPdf / (bsdfPdf + cameraPdf);
-				Colour contrib = pathThroughput * f * Le * misWeight;
-				if (isFiniteColour(contrib) && contrib.Lum() <= 100.0f)
-					connectToCamera(shadingData.x, shadingData.sNormal, contrib);
-			}
+	//		if (!shadingData.bsdf->isPureSpecular() && scene->visible(shadingData.x + wi * EPSILON, scene->camera.origin))
+	//		{
+	//			Colour f = shadingData.bsdf->evaluate(shadingData, wi);
+	//			float bsdfPdf = shadingData.bsdf->PDF(shadingData, wi);
+	//			float cameraPdf = 1.0f;
+	//			float misWeight = bsdfPdf / (bsdfPdf + cameraPdf);
+	//			Colour contrib = pathThroughput * f * Le * misWeight;
+	//			if (isFiniteColour(contrib) && contrib.Lum() <= 100.0f)
+	//				connectToCamera(shadingData.x, shadingData.sNormal, contrib);
+	//		}
 
-			// Russian Roulette termination
-			float rrProb = max(min(pathThroughput.Lum(), 0.9f), 0.1f);
-			if (sampler->next() > rrProb)
-				break;
+	//		// Russian Roulette termination
+	//		float rrProb = max(min(pathThroughput.Lum(), 0.9f), 0.1f);
+	//		if (sampler->next() > rrProb)
+	//			break;
 
-			pathThroughput = pathThroughput / rrProb;
+	//		pathThroughput = pathThroughput / rrProb;
 
-			// Sample next direction
-			Colour sampledColour;
-			float pdf;
-			Vec3 nextWi = shadingData.bsdf->sample(shadingData, sampler, sampledColour, pdf);
-			if (pdf <= EPSILON)
-				break;
+	//		// Sample next direction
+	//		Colour sampledColour;
+	//		float pdf;
+	//		Vec3 nextWi = shadingData.bsdf->sample(shadingData, sampler, sampledColour, pdf);
+	//		if (pdf <= EPSILON)
+	//			break;
 
-			float cosTheta = max(Dot(nextWi, shadingData.sNormal), 0.0f);
-			Colour newTP = pathThroughput * sampledColour * cosTheta / pdf;
-			if (!isFiniteColour(newTP) || newTP.Lum() > 100.0f) break;
+	//		float cosTheta = max(Dot(nextWi, shadingData.sNormal), 0.0f);
+	//		Colour newTP = pathThroughput * sampledColour * cosTheta / pdf;
+	//		if (!isFiniteColour(newTP) || newTP.Lum() > 100.0f) break;
 
-			pathThroughput = newTP;
-			r = Ray(shadingData.x + nextWi * EPSILON, nextWi);
-		}
-	}
+	//		pathThroughput = newTP;
+	//		r = Ray(shadingData.x + nextWi * EPSILON, nextWi);
+	//	}
+	//}
 
 
-	void lightTrace(Sampler* sampler)
-	{
-		float pmf;
-		Light* light = scene->sampleLight(sampler, pmf);
-		if (!light || pmf <= 0.0f) return;
+	//void lightTrace(Sampler* sampler)
+	//{
+	//	float pmf;
+	//	Light* light = scene->sampleLight(sampler, pmf);
+	//	if (!light || pmf <= 0.0f) return;
 
-		float pdfPosition, pdfDirection;
-		Vec3 position = light->samplePositionFromLight(sampler, pdfPosition);
-		Vec3 direction = light->sampleDirectionFromLight(sampler, pdfDirection);
+	//	float pdfPosition, pdfDirection;
+	//	Vec3 position = light->samplePositionFromLight(sampler, pdfPosition);
+	//	Vec3 direction = light->sampleDirectionFromLight(sampler, pdfDirection);
 
-		if (pdfPosition <= EPSILON || pdfDirection <= EPSILON) return;
+	//	if (pdfPosition <= EPSILON || pdfDirection <= EPSILON) return;
 
-		Vec3 normal;
-		if (light->isArea())
-		{
-			AreaLight* area = static_cast<AreaLight*>(light);
-			normal = area->triangle->gNormal();;
-		}
-		else
-		{
-			// Environment or other lights use opposite of direction
-			normal = -direction;
-		}
+	//	Vec3 normal;
+	//	if (light->isArea())
+	//	{
+	//		AreaLight* area = static_cast<AreaLight*>(light);
+	//		normal = area->triangle->gNormal();;
+	//	}
+	//	else
+	//	{
+	//		// Environment or other lights use opposite of direction
+	//		normal = -direction;
+	//	}
 
-		Colour emitted = light->evaluate(-direction);
-		float cosTheta = max(Dot(normal, direction), 0.0f);
-		Colour Le = emitted * cosTheta / pdfPosition;
-		if (!isFiniteColour(Le) || Le.Lum() > 100.0f) return;
+	//	Colour emitted = light->evaluate(-direction);
+	//	float cosTheta = max(Dot(normal, direction), 0.0f);
+	//	Colour Le = emitted * cosTheta / pdfPosition;
+	//	if (!isFiniteColour(Le) || Le.Lum() > 100.0f) return;
 
-		// Attempt to connect light position directly to the camera
-		connectToCamera(position, normal, Le);
+	//	// Attempt to connect light position directly to the camera
+	//	connectToCamera(position, normal, Le);
 
-		// Fire a ray into the scene from the light
-		Ray ray(position + direction * EPSILON, direction);
-		Colour pathThroughput = Le / pdfDirection;
-		if (!isFiniteColour(pathThroughput) || pathThroughput.Lum() > 100.0f) return;
+	//	// Fire a ray into the scene from the light
+	//	Ray ray(position + direction * EPSILON, direction);
+	//	Colour pathThroughput = Le / pdfDirection;
+	//	if (!isFiniteColour(pathThroughput) || pathThroughput.Lum() > 100.0f) return;
 
-		lightTracePath(ray, pathThroughput, Le, sampler);
-	}
+	//	lightTracePath(ray, pathThroughput, Le, sampler);
+	//}
 
 	void render()
 	{
 		film->incrementSPP();
 
-		int spp = 1; // samples per pixel — make this configurable later
-		int totalRays = film->width * film->height * spp;
-		int raysPerThread = totalRays / numProcs;
+		//int spp = 1; // samples per pixel — make this configurable later
+		//int totalRays = film->width * film->height * spp;
+		//int raysPerThread = totalRays / numProcs;
 
-		// Light Tracing
-		for (int i = 0; i < numProcs; i++) {
-			threads[i] = new std::thread([&, i]()
-				{
-					MTRandom* sampler = &samplers[i];
-					for (int j = 0; j < raysPerThread; ++j) {
-						lightTrace(sampler);
-					}
-				});
-		}
+		//// Light Tracing
+		//for (int i = 0; i < numProcs; i++) {
+		//	threads[i] = new std::thread([&, i]()
+		//		{
+		//			MTRandom* sampler = &samplers[i];
+		//			for (int j = 0; j < raysPerThread; ++j) {
+		//				lightTrace(sampler);
+		//			}
+		//		});
+		//}
 
-		for (int i = 0; i < numProcs; i++) {
-			threads[i]->join();
-			delete threads[i];
-		}
+		//for (int i = 0; i < numProcs; i++) {
+		//	threads[i]->join();
+		//	delete threads[i];
+		//}
 
 		const int tileSize = 16;
 		int Nx = (film->width + tileSize - 1) / tileSize;
@@ -356,25 +356,25 @@ public:
 						int endX = min(startX + tileSize, (int)film->width);
 						int endY = min(startY + tileSize, (int)film->height);
 
-						//// Get the random sampler for this thread
-						//MTRandom* sampler = &samplers[i];
+						// Get the random sampler for this thread
+						MTRandom* sampler = &samplers[i];
 
 						// Render all pixels in [startX,endX) x [startY,endY)
 						for (int y = startY; y < endY; y++)
 						{
 							for (int x = startX; x < endX; x++)
 							{
-								////float px = x + 0.5f;
-								////float py = y + 0.5f;
-								//float tx = x + sampler->next();
-								//float ty = y + sampler->next();
-								//Ray ray = scene->camera.generateRay(tx, ty);
-								////Colour norm = viewNormals(ray);
-								////Colour alb = albedo(ray);
-								////Colour dir = direct(ray, sampler);
-								//Colour th(1.0f, 1.0f, 1.0f);
-								//Colour pathT = pathTrace(ray, th, 0, sampler);
-								//film->splat(tx, ty, pathT);
+								//float px = x + 0.5f;
+								//float py = y + 0.5f;
+								float tx = x + sampler->next();
+								float ty = y + sampler->next();
+								Ray ray = scene->camera.generateRay(tx, ty);
+								//Colour norm = viewNormals(ray);
+								//Colour alb = albedo(ray);
+								//Colour dir = direct(ray, sampler);
+								Colour th(1.0f, 1.0f, 1.0f);
+								Colour pathT = pathTrace(ray, th, 0, sampler);
+								film->splat(tx, ty, pathT);
 								unsigned char r, g, b;
 								film->FilmicTonemap(x, y, r, g, b);
 								canvas->draw(x, y, r, g, b);
