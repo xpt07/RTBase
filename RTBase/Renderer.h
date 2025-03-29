@@ -256,7 +256,7 @@ public:
 		Vec3 lightPos = light->samplePositionFromLight(sampler, posPdf);
 		Vec3 lightDir = light->sampleDirectionFromLight(sampler, dirPdf);
 
-		Colour Le = light->evaluate(-lightDir) / (dirPdf * posPdf);
+		Colour Le = light->evaluate(-lightDir) / (dirPdf * posPdf * pmf);
 
 		ShadingData shadingData;
 		connectToCamera(lightPos, light->normal(shadingData, -lightDir), Le);
@@ -271,7 +271,7 @@ public:
 	{
 		film->incrementSPP();
 
-		int spp = 1; // samples per pixel
+		int spp = 5; // samples per pixel
 		int totalRays = film->width * film->height * spp;
 		int raysPerThread = totalRays / numProcs;
 
