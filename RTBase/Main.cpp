@@ -19,9 +19,9 @@ int main(int argc, char *argv[])
 	// Initialize default parameters
 	//std::string sceneName = "veach-bidir";
 	//std::string sceneName = "dining-room";
-	std::string sceneName = "bathroom";
+	//std::string sceneName = "bathroom";
 	//std::string sceneName = "MaterialsScene";
-	//std::string sceneName = "cornell-box";
+	std::string sceneName = "cornell-box";
 	std::string filename = "GI.hdr";
 	unsigned int SPP = 8192;
 
@@ -110,7 +110,8 @@ int main(int argc, char *argv[])
 		}
 		// Time how long a render call takes
 		timer.reset();
-		rt.render();
+		rt.renderPT();
+		//rt.renderLT();
 		float t = timer.dt();
 		// Write
 		std::cout << t << std::endl;
