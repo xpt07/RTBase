@@ -83,24 +83,24 @@ public:
 
 	void build()
 	{
-		// Free existing BVH if any
-		if (bvh)
-		{
-			delete bvh;
-			bvh = nullptr;
-		}
+		//// Free existing BVH if any
+		//if (bvh)
+		//{
+		//	delete bvh;
+		//	bvh = nullptr;
+		//}
 
-		bvh = new BVHNode();
+		//bvh = new BVHNode();
 
-		// Create a list of indices for all triangles
-		std::vector<int> indices(triangles.size());
-		for (int i = 0; i < triangles.size(); i++)
-		{
-			indices[i] = i;
-		}
+		//// Create a list of indices for all triangles
+		//std::vector<int> indices(triangles.size());
+		//for (int i = 0; i < triangles.size(); i++)
+		//{
+		//	indices[i] = i;
+		//}
 
-		// Build the BVH using the indices
-		bvh->build(triangles, indices, 0);
+		//// Build the BVH using the indices
+		//bvh->build(triangles, indices, 0);
 
 		// Do not touch the code below this line!
 		// Build light list
@@ -117,28 +117,28 @@ public:
 	}
 	IntersectionData traverse(const Ray& ray)
 	{
-		//IntersectionData intersection;
-		//intersection.t = FLT_MAX;
-		//for (int i = 0; i < triangles.size(); i++)
-		//{
-		//	float t;
-		//	float u;
-		//	float v;
-		//	if (triangles[i].rayIntersect(ray, t, u, v))
-		//	{
-		//		if (t < intersection.t)
-		//		{
-		//			intersection.t = t;
-		//			intersection.ID = i;
-		//			intersection.alpha = u;
-		//			intersection.beta = v;
-		//			intersection.gamma = 1.0f - (u + v);
-		//		}
-		//	}
-		//}
-		//return intersection;
+		IntersectionData intersection;
+		intersection.t = FLT_MAX;
+		for (int i = 0; i < triangles.size(); i++)
+		{
+			float t;
+			float u;
+			float v;
+			if (triangles[i].rayIntersect(ray, t, u, v))
+			{
+				if (t < intersection.t)
+				{
+					intersection.t = t;
+					intersection.ID = i;
+					intersection.alpha = u;
+					intersection.beta = v;
+					intersection.gamma = 1.0f - (u + v);
+				}
+			}
+		}
+		return intersection;
 
-		return bvh->traverse(ray, triangles);
+		//return bvh->traverse(ray, triangles);
 	}
 	Light* sampleLight(Sampler* sampler, float& pmf)
 	{
@@ -174,22 +174,22 @@ public:
 		dir = dir.normalize();
 		ray.init(p1 + (dir * EPSILON), dir);
 
-		return bvh->traverseVisible(ray, triangles, maxT);
+		//return bvh->traverseVisible(ray, triangles, maxT);
 
-		//for (int i = 0; i < triangles.size(); i++)
-		//{
-		//	float t;
-		//	float u;
-		//	float v;
-		//	if (triangles[i].rayIntersect(ray, t, u, v))
-		//	{
-		//		if (t < maxT)
-		//		{
-		//			return false;
-		//		}
-		//	}
-		//}
-		//return true;
+		for (int i = 0; i < triangles.size(); i++)
+		{
+			float t;
+			float u;
+			float v;
+			if (triangles[i].rayIntersect(ray, t, u, v))
+			{
+				if (t < maxT)
+				{
+					return false;
+				}
+			}
+		}
+		return true;
 	}
 	Colour emit(Triangle* light, ShadingData shadingData, Vec3 wi)
 	{

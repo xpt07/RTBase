@@ -267,6 +267,27 @@ public:
 		lightTracePath(r, pathThroughput, Le, sampler);
 	}
 
+	void render()
+	{
+		film->incrementSPP();
+		for (unsigned int y = 0; y < film->height; y++)
+		{
+			for (unsigned int x = 0; x < film->width; x++)
+			{
+				float px = x + 0.5f;
+				float py = y + 0.5f;
+				Ray ray = scene->camera.generateRay(px, py);
+				//Colour col = viewNormals(ray);
+				Colour col = albedo(ray);
+				film->splat(px, py, col);
+				unsigned char r = (unsigned char)(col.r * 255);
+				unsigned char g = (unsigned char)(col.g * 255);
+				unsigned char b = (unsigned char)(col.b * 255);
+				canvas->draw(x, y, r, g, b);
+			}
+		}
+	}
+
 	void renderPT()
 	{
 		film->incrementSPP();
@@ -305,17 +326,17 @@ public:
 						{
 							for (int x = startX; x < endX; x++)
 							{
-								//float px = x + 0.5f;
-								//float py = y + 0.5f;
+								float px = x + 0.5f;
+								float py = y + 0.5f;
 								float tx = x + sampler->next();
 								float ty = y + sampler->next();
 								Ray ray = scene->camera.generateRay(tx, ty);
 								//Colour norm = viewNormals(ray);
-								//Colour alb = albedo(ray);
-								Colour dir = direct(ray, sampler);
-								Colour th(1.0f, 1.0f, 1.0f);
-								Colour pathT = pathTrace(ray, th, 0, sampler);
-								film->splat(tx, ty, pathT);
+								Colour alb = albedo(ray);
+								//Colour dir = direct(ray, sampler);
+								//Colour th(1.0f, 1.0f, 1.0f);
+								//Colour pathT = pathTrace(ray, th, 0, sampler);
+								film->splat(px, py, alb);
 								unsigned char r, g, b;
 								film->tonemap(x, y, r, g, b);
 								canvas->draw(x, y, r, g, b);
