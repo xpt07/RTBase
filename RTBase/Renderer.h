@@ -204,6 +204,10 @@ public:
 		float cosTheta = Dot(n, wi);
 		if (cosTheta <= 0.0f || distance2 < EPSILON) return;
 
+		// Visibility check
+		if (!scene->visible(p + wi * EPSILON, scene->camera.origin))
+			return;
+
 		float G = cosTheta / distance2;
 
 		Colour contrib = col * G;
