@@ -193,21 +193,24 @@ public:
 
 	void connectToCamera(const Vec3& p, const Vec3& n, const Colour& col)
 	{
-		float px, py;
-		if (scene->camera.projectOntoCamera(p, px, py) && scene->visible(p, scene->camera.origin))
-		{
-			Vec3 toCam = (scene->camera.origin - p).normalize();
-			float cosTheta = Dot(toCam, n);
+		float screenX, screenY;
+		bool visible = scene->visible(p, scene->camera.origin);
+		bool projected = scene->camera.projectOntoCamera(p, screenX, screenY);
 
-			if (cosTheta <= 0.0f)
-				return;
+		if (!visible || !projected)
+			return;
 
-			float we = 1.0f / SQ(cosTheta) * SQ(cosTheta) * scene->camera.Afilm;
+		Vec3 camDir = scene->camera.origin - p;
+		float distanceSquared = camDir.lengthSq();
+		camDir = camDir.normalize();
 
-			film->splat(px, py, col);
-		}
+		float cosAngle = Dot(camDir, n);
+		if (cosAngle <= 0.0f)
+			return;
 
-
+		float importance = (cosAngle / distanceSquared) * scene->camera.Afilm;
+		Colour pixelContribution = col * importance;
+		film->splat(screenX, screenY, pixelContribution);
 	}
 
 	void lightTracePath(Ray& r, Colour pathThroughput, Colour Le, Sampler* sampler, int depth = 0)
@@ -220,10 +223,7 @@ public:
 
 		if (shadingData.t < FLT_MAX)
 		{
-			if (shadingData.bsdf->isLight())
-				return;
-
-			if (shadingData.bsdf->isPureSpecular() == true)
+			if (shadingData.bsdf->isLight() || shadingData.bsdf->isPureSpecular())
 				return;
 
 			float russianRouletteProbability = min(pathThroughput.Lum(), 0.9f);
@@ -252,17 +252,16 @@ public:
 		float pmf;
 		Light* light = scene->sampleLight(sampler, pmf);
 
-		float pdfPos, pdfDir;
-		Colour emmitted;
-		Vec3 p = light->samplePositionFromLight(sampler, pdfPos);
-		Vec3 wi = light->sampleDirectionFromLight(sampler, pdfDir);
+		float posPdf, dirPdf;
+		Vec3 lightPos = light->samplePositionFromLight(sampler, posPdf);
+		Vec3 lightDir = light->sampleDirectionFromLight(sampler, dirPdf);
 
-		Colour Le = light->evaluate(-wi) / (pdfDir * pdfPos);
+		Colour Le = light->evaluate(-lightDir) / (dirPdf * posPdf);
 
 		ShadingData shadingData;
-		connectToCamera(p, light->normal(shadingData, -wi), Le);
+		connectToCamera(lightPos, light->normal(shadingData, -lightDir), Le);
 
-		Ray r(p, wi);
+		Ray r(lightPos, lightDir);
 		Colour pathThroughput(1.0f, 1.0f, 1.0f);
 
 		lightTracePath(r, pathThroughput, Le, sampler);
@@ -338,7 +337,7 @@ public:
 								//Colour pathT = pathTrace(ray, th, 0, sampler);
 								//film->splat(tx, ty, pathT);
 								unsigned char r, g, b;
-								film->FilmicTonemap(x, y, r, g, b);
+								film->tonemap(x, y, r, g, b);
 								canvas->draw(x, y, r, g, b);
 							}
 						}
