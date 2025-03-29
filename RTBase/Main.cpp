@@ -17,9 +17,9 @@ int main(int argc, char *argv[])
 	// runTests()
 	
 	// Initialize default parameters
-	std::string sceneName = "veach-bidir";
+	//std::string sceneName = "veach-bidir";
 	//std::string sceneName = "dining-room";
-	//std::string sceneName = "bathroom";
+	std::string sceneName = "bathroom";
 	//std::string sceneName = "MaterialsScene";
 	//std::string sceneName = "cornell-box";
 	std::string filename = "GI.hdr";
