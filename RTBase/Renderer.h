@@ -200,16 +200,23 @@ public:
 		if (!visible || !projected)
 			return;
 
-		Vec3 camDir = scene->camera.origin - p;
-		float distanceSquared = camDir.lengthSq();
-		camDir = camDir.normalize();
+		// Compute the vector from the point to the camera and its squared length
+		Vec3 camVec = scene->camera.origin - p;
+		float distanceSquared = camVec.lengthSq();
 
-		float cosAngle = Dot(camDir, n);
-		if (cosAngle <= 0.0f)
-			return;
+		// Normalize to get the direction for the angular term
+		Vec3 camDir = camVec.normalize();
 
-		float importance = (cosAngle / distanceSquared) * scene->camera.Afilm;
-		Colour pixelContribution = col * importance;
+		// Compute the cosine of the angle between the ray and the camera's view direction
+		float cosCamera = std::fabs(Dot(camDir, scene->camera.viewDirection));
+
+		// Sensor importance function: include both distance falloff and angular weighting.
+		float we = 1.0f / (scene->camera.Afilm * distanceSquared * powf(cosCamera, 4));
+
+		// Compute cosine of the angle between the surface normal and the direction to the camera.
+		float cosSurface = max(Dot(n, camDir), 0.0f);
+
+		Colour pixelContribution = col * we * cosSurface;
 		film->splat(screenX, screenY, pixelContribution);
 	}
 
@@ -236,11 +243,15 @@ public:
 			float pdf;
 			Vec3 wi = shadingData.bsdf->sample(shadingData, sampler, bsdf, pdf);
 
+			// Avoid division by zero
+			if (pdf < EPSILON)
+				return;
+
 			pathThroughput = pathThroughput * bsdf * fabsf(wi.dot(shadingData.sNormal)) / pdf;
 
 			connectToCamera(shadingData.x, shadingData.sNormal, pathThroughput);
 
-			r.init(shadingData.x + wi, wi);
+			r.init(shadingData.x + EPSILON * wi, wi);
 
 			lightTracePath(r, pathThroughput, Le, sampler, depth + 1);
 		}
@@ -356,7 +367,7 @@ public:
 	{
 		film->incrementSPP();
 
-		int spp = 5; // samples per pixel
+		int spp = 1; // samples per pixel
 		int totalRays = film->width * film->height * spp;
 		int raysPerThread = totalRays / numProcs;
 
