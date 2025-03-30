@@ -191,12 +191,18 @@ public:
 	float F = 0.30;
 	float W = 11.2;
 
-	oidn::DeviceRef device;
-	oidn::BufferRef colorBuffer, normalBuffer, albedoBuffer, outputBuffer;
-	Vec3* colorData = nullptr;
-	Vec3* normalData = nullptr;
-	Vec3* albedoData = nullptr;
-	Vec3* outputData = nullptr;
+	std::vector<float> getLums(unsigned int startX, unsigned int startY, unsigned int endX, unsigned int endY)
+	{
+		std::vector<float> lums;
+		for (unsigned int y = startX; y < endX; y++)
+		{
+			for (unsigned int x = startY; x < endY; x++)
+			{
+				lums.emplace_back(film[y * width + x].Lum());
+			}
+		}
+		return lums;
+	}
 
 	void splat(const float x, const float y, const Colour& L) {
 		float filterWeights[25]; // Storage to cache weights
@@ -225,10 +231,18 @@ public:
 
 		return ((x * (A * x + C * B) + D * E) / (x * (A * x + B) + D * F)) - (E / F);
 	}
-
+	
 	void tonemap(int x, int y, unsigned char& r, unsigned char& g, unsigned char& b, float exposure = 1.0f)
 	{
 		Colour pixel = film[(y * width) + x] * exposure / (float)SPP;
+		r = std::min(powf(std::max(pixel.r, 0.0f), 1.0f / 2.2f) * 255, 255.0f);
+		g = std::min(powf(std::max(pixel.g, 0.0f), 1.0f / 2.2f) * 255, 255.0f);
+		b = std::min(powf(std::max(pixel.b, 0.0f), 1.0f / 2.2f) * 255, 255.0f);
+	}
+
+	void tonemap(int x, int y, unsigned char& r, unsigned char& g, unsigned char& b, int spp ,float exposure = 1.0f)
+	{
+		Colour pixel = film[(y * width) + x] * exposure / (float)spp;
 		r = std::min(powf(std::max(pixel.r, 0.0f), 1.0f / 2.2f) * 255, 255.0f);
 		g = std::min(powf(std::max(pixel.g, 0.0f), 1.0f / 2.2f) * 255, 255.0f);
 		b = std::min(powf(std::max(pixel.b, 0.0f), 1.0f / 2.2f) * 255, 255.0f);
@@ -250,29 +264,11 @@ public:
 		film = new Colour[width * height];
 		filter = _filter;
 
-		device = oidn::newDevice();
-		device.commit();
-
-		colorBuffer = device.newBuffer(width * height * sizeof(Vec3));
-		normalBuffer = device.newBuffer(width * height * sizeof(Vec3));
-		albedoBuffer = device.newBuffer(width * height * sizeof(Vec3));
-		outputBuffer = device.newBuffer(width * height * sizeof(Vec3));
-
-		colorData = (Vec3*)colorBuffer.getData();
-		normalData = (Vec3*)normalBuffer.getData();
-		albedoData = (Vec3*)albedoBuffer.getData();
-		outputData = (Vec3*)outputBuffer.getData();
-
 		clear();
 	}
 	void clear()
 	{
 		memset(film, 0, width * height * sizeof(Colour));
-
-		memset(colorData, 0, width * height * sizeof(Vec3));
-		memset(normalData, 0, width * height * sizeof(Vec3));
-		memset(albedoData, 0, width * height * sizeof(Vec3));
-		memset(outputData, 0, width * height * sizeof(Vec3));
 
 		SPP = 0;
 	}

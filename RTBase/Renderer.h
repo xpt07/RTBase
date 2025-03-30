@@ -25,6 +25,12 @@ public:
 	std::thread **threads;
 	int numProcs;
 
+	std::vector<unsigned int> tileSamples;
+	std::vector<unsigned int> tileSPP;
+	unsigned int initSamples = 4;
+	unsigned int totalSamples = 8192;
+	int maxSamples = INT_MAX;
+
 	void init(Scene* _scene, GamesEngineeringBase::Window* _canvas)
 	{
 		scene = _scene;
@@ -41,6 +47,7 @@ public:
 	void clear()
 	{
 		film->clear();
+		maxSamples = INT_MAX;
 	}
 
 	Colour computeDirect(ShadingData shadingData, Sampler* sampler)
@@ -218,7 +225,6 @@ public:
 		Colour pixelContribution = col * we;
 		film->splat(screenX, screenY, pixelContribution);
 	}
-
 	void lightTracePath(Ray& r, Colour pathThroughput, Colour Le, Sampler* sampler, int depth = 0)
 	{
 		if (depth >= MAX_DEPTH)
@@ -256,7 +262,6 @@ public:
 		}
 
 	}
-
 	void lightTrace(Sampler* sampler)
 	{
 		float pmf;
@@ -275,6 +280,143 @@ public:
 		Colour pathThroughput(1.0f, 1.0f, 1.0f);
 
 		lightTracePath(r, pathThroughput, Le, sampler);
+	}
+
+	void calculateSamples()
+	{
+		const int tileSize = 16;
+		int Nx = (film->width + tileSize - 1) / tileSize;
+		int Ny = (film->height + tileSize - 1) / tileSize;
+		int totalTiles = Nx * Ny;
+
+		std::atomic<int> nextTileIndex(0);
+		for (int i = 0; i < numProcs; i++)
+		{
+			threads[i] = new std::thread([&, i]() {
+				int tileIdx;
+				while ((tileIdx = nextTileIndex.fetch_add(1)) < totalTiles)
+				{
+					unsigned int startX = (tileIdx % Nx) * tileSize;
+					unsigned int startY = (tileIdx / Nx) * tileSize;
+					unsigned int endX = min(startX + tileSize, film->width);
+					unsigned int endY = min(startY + tileSize, film->height);
+
+					std::vector<float> lums = film->getLums(startX, startY, endX, endY);
+
+					float total = 0.0f;
+					for (float lum : lums)
+						total += lum;
+					float mean = (lums.empty()) ? 0.0f : total / lums.size();
+
+					float variance = 0.0f;
+					for (float lum : lums)
+						variance += (lum - mean) * (lum - mean);
+					variance = (lums.empty()) ? 0.0f : variance / lums.size();
+
+					float weight = variance / (variance + mean * mean + EPSILON);
+					tileSamples[tileIdx] = static_cast<unsigned int>(totalSamples * weight + initSamples);
+				}
+				});
+		}
+		for (int i = 0; i < numProcs; i++)
+		{
+			threads[i]->join();
+			delete threads[i];
+		}
+	}
+	void renderAdaptive()
+	{
+		const int tileSize = 16;
+		int Nx = (film->width + tileSize - 1) / tileSize;
+		int Ny = (film->height + tileSize - 1) / tileSize;
+		int totalTiles = Nx * Ny;
+
+		tileSamples.resize(totalTiles, initSamples);
+		tileSPP.resize(totalTiles, 0);
+
+		calculateSamples();
+
+		bool done = false;
+		while (!done)
+		{
+
+			std::atomic<int> nextTileIndex(0);
+			std::atomic<bool> tilesIncomplete(false);
+
+			for (int i = 0; i < numProcs; i++)
+			{
+				threads[i] = new std::thread([&, i]() {
+					int tileIdx;
+					while ((tileIdx = nextTileIndex.fetch_add(1)) < totalTiles)
+					{
+						int tileX = tileIdx % Nx;
+						int tileY = tileIdx / Nx;
+						int startX = tileX * tileSize;
+						int startY = tileY * tileSize;
+						int endX = min(startX + tileSize, (int)film->width);
+						int endY = min(startY + tileSize, (int)film->height);
+
+						MTRandom* sampler = &samplers[i];
+
+						for (int y = startY; y < endY; y++)
+						{
+							for (int x = startX; x < endX; x++)
+							{
+								float px = x + 0.5f;
+								float py = y + 0.5f;
+								float tx = x + sampler->next();
+								float ty = y + sampler->next();
+								Ray ray = scene->camera.generateRay(tx, ty);
+								Colour th(1.0f, 1.0f, 1.0f);
+								Colour pathT = pathTrace(ray, th, 0, sampler);
+								film->splat(px, py, pathT);
+							}
+						}
+						tileSPP[tileIdx]++;
+					}
+				});
+			}
+			for (int i = 0; i < numProcs; i++) {
+				threads[i]->join();
+				delete threads[i];
+			}
+			done = !tilesIncomplete.load();
+		}
+
+
+		std::atomic<int> nextTileIndex(0);
+		for (int i = 0; i < numProcs; i++)
+		{
+			threads[i] = new std::thread([&, i]() {
+				int tileIdx;
+				while ((tileIdx = nextTileIndex.fetch_add(1)) < totalTiles)
+				{
+					int tileX = tileIdx % Nx;
+					int tileY = tileIdx / Nx;
+					int startX = tileX * tileSize;
+					int startY = tileY * tileSize;
+					int endX = min(startX + tileSize, (int)film->width);
+					int endY = min(startY + tileSize, (int)film->height);
+
+					int spp = tileSPP[tileIdx];
+
+					for (int y = startY; y < endY; y++)
+					{
+						for (int x = startX; x < endX; x++)
+						{
+							unsigned char r, g, b;
+							film->tonemap(x, y, r, g, b, spp);
+							canvas->draw(x, y, r, g, b);
+						}
+					}
+				}
+			});
+		}
+		for (int i = 0; i < numProcs; i++) {
+			threads[i]->join();
+			delete threads[i];
+		}
+		
 	}
 
 	void render()
@@ -297,7 +439,6 @@ public:
 			}
 		}
 	}
-
 	void renderPT()
 	{
 		film->incrementSPP();
@@ -361,7 +502,6 @@ public:
 			delete threads[i];
 		}
 	}
-
 	void renderLT()
 	{
 		film->incrementSPP();
@@ -431,6 +571,7 @@ public:
 			delete threads[i];
 		}
 	}
+
 	int getSPP()
 	{
 		return film->SPP;
