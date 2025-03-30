@@ -202,7 +202,6 @@ public:
 
 		// Compute the vector from the point to the camera and its squared length
 		Vec3 camVec = scene->camera.origin - p;
-		float distanceSquared = camVec.lengthSq();
 
 		// Normalize to get the direction for the angular term
 		Vec3 camDir = camVec.normalize();
@@ -210,13 +209,13 @@ public:
 		// Compute the cosine of the angle between the ray and the camera's view direction
 		float cosCamera = std::fabs(Dot(camDir, scene->camera.viewDirection));
 
-		// Sensor importance function: include both distance falloff and angular weighting.
-		float we = 1.0f / (scene->camera.Afilm * distanceSquared * powf(cosCamera, 4));
+		// Sensor importance function.
+		float we = 1.0f / (scene->camera.Afilm * powf(cosCamera, 4));
 
 		// Compute cosine of the angle between the surface normal and the direction to the camera.
 		float cosSurface = max(Dot(n, camDir), 0.0f);
 
-		Colour pixelContribution = col * we * cosSurface;
+		Colour pixelContribution = col * we;
 		film->splat(screenX, screenY, pixelContribution);
 	}
 
