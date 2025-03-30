@@ -349,6 +349,9 @@ public:
 					int tileIdx;
 					while ((tileIdx = nextTileIndex.fetch_add(1)) < totalTiles)
 					{
+						if (tileSPP[tileIdx] >= tileSamples[tileIdx])
+							continue;
+
 						int tileX = tileIdx % Nx;
 						int tileY = tileIdx / Nx;
 						int startX = tileX * tileSize;
@@ -374,7 +377,7 @@ public:
 						}
 						tileSPP[tileIdx]++;
 					}
-				});
+					});
 			}
 			for (int i = 0; i < numProcs; i++) {
 				threads[i]->join();
@@ -410,13 +413,13 @@ public:
 						}
 					}
 				}
-			});
+				});
 		}
 		for (int i = 0; i < numProcs; i++) {
 			threads[i]->join();
 			delete threads[i];
 		}
-		
+
 	}
 
 	void render()
