@@ -332,11 +332,11 @@ public:
 								float ty = y + sampler->next();
 								Ray ray = scene->camera.generateRay(tx, ty);
 								//Colour norm = viewNormals(ray);
-								Colour alb = albedo(ray);
+								//Colour alb = albedo(ray);
 								//Colour dir = direct(ray, sampler);
-								//Colour th(1.0f, 1.0f, 1.0f);
-								//Colour pathT = pathTrace(ray, th, 0, sampler);
-								film->splat(px, py, alb);
+								Colour th(1.0f, 1.0f, 1.0f);
+								Colour pathT = pathTrace(ray, th, 0, sampler);
+								film->splat(px, py, pathT);
 								unsigned char r, g, b;
 								film->tonemap(x, y, r, g, b);
 								canvas->draw(x, y, r, g, b);
