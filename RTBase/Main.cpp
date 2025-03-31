@@ -20,9 +20,9 @@ int main(int argc, char *argv[])
 	//std::string sceneName = "veach-bidir";
 	//std::string sceneName = "dining-room";
 	//std::string sceneName = "bathroom";
-	std::string sceneName = "MaterialsScene";
+	//std::string sceneName = "MaterialsScene";
 	//std::string sceneName = "glass-of-water";
-	//std::string sceneName = "cornell-box";
+	std::string sceneName = "cornell-box";
 	std::string filename = "GI.hdr";
 	unsigned int SPP = 8192;
 
