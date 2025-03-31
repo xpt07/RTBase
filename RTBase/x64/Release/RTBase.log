@@ -2,18 +2,18 @@
 C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Geometry.h(353,39): warning C4267: '+=': conversion from 'size_t' to 'int', possible loss of data
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Imaging.h(217,23): warning C4018: '<': signed/unsigned mismatch
+C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Imaging.h(220,23): warning C4018: '<': signed/unsigned mismatch
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Imaging.h(217,48): warning C4018: '<': signed/unsigned mismatch
+C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Imaging.h(220,48): warning C4018: '<': signed/unsigned mismatch
   (compiling source file 'Main.cpp')
   
-C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Imaging.h(225,21): warning C4018: '<': signed/unsigned mismatch
+C:\Users\xpto7\OneDrive\Desktop\AdvCG\RTBase\Imaging.h(228,21): warning C4018: '<': signed/unsigned mismatch
   (compiling source file 'Main.cpp')
   
   Generating code
-  6 of 2318 functions ( 0.3%) were compiled, the rest were copied from previous compilation.
+  2 of 2276 functions (<0.1%) were compiled, the rest were copied from previous compilation.
     0 functions were new in current compilation
-    14 functions had inline decision re-evaluated but remain unchanged
+    37 functions had inline decision re-evaluated but remain unchanged
   Finished generating code
   RTBase.vcxproj -> C:\Users\xpto7\OneDrive\Desktop\AdvCG\x64\Release\RTBase.exe

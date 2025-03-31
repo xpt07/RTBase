@@ -178,6 +178,9 @@ class Film
 {
 public:
 	Colour* film;
+	Colour* denoised;
+	Colour* albedo;
+	Colour* normal;
 	unsigned int width;
 	unsigned int height;
 	int SPP;
@@ -226,12 +229,30 @@ public:
 			film[indices[i]] = film[indices[i]] + (L * filterWeights[i] / total);
 		}
 	}
+	void splatAlbedo(int x, int y, const Colour& alb)
+	{
+		if (x >= 0 && x < (int)width && y >= 0 && y < (int)height)
+			albedo[y * width + x] = alb;
+	}
+	void splatNormal(int x, int y, const Colour& norm)
+	{
+		if (x >= 0 && x < (int)width && y >= 0 && y < (int)height)
+			normal[y * width + x] = norm;
+	}
 
 	float Filmic(float x) {
 
 		return ((x * (A * x + C * B) + D * E) / (x * (A * x + B) + D * F)) - (E / F);
 	}
 	
+	void tonemapDenoised(int x, int y, unsigned char& r, unsigned char& g, unsigned char& b, float exposure = 1.0f)
+	{
+		Colour pixel = denoised[(y * width) + x] * exposure / (float)SPP;
+		r = std::min(powf(std::max(pixel.r, 0.0f), 1.0f / 2.2f) * 255, 255.0f);
+		g = std::min(powf(std::max(pixel.g, 0.0f), 1.0f / 2.2f) * 255, 255.0f);
+		b = std::min(powf(std::max(pixel.b, 0.0f), 1.0f / 2.2f) * 255, 255.0f);
+	}
+
 	void tonemap(int x, int y, unsigned char& r, unsigned char& g, unsigned char& b, float exposure = 1.0f)
 	{
 		Colour pixel = film[(y * width) + x] * exposure / (float)SPP;
@@ -262,6 +283,9 @@ public:
 		width = _width;
 		height = _height;
 		film = new Colour[width * height];
+		denoised = new Colour[width * height];
+		albedo = new Colour[width * height];
+		normal = new Colour[width * height];
 		filter = _filter;
 
 		clear();
@@ -269,7 +293,9 @@ public:
 	void clear()
 	{
 		memset(film, 0, width * height * sizeof(Colour));
-
+		memset(denoised, 0, width * height * sizeof(Colour));
+		memset(albedo, 0, width * height * sizeof(Colour));
+		memset(normal, 0, width * height * sizeof(Colour));
 		SPP = 0;
 	}
 	void incrementSPP()
@@ -285,5 +311,24 @@ public:
 		}
 		stbi_write_hdr(filename.c_str(), width, height, 3, (float*)hdrpixels);
 		delete[] hdrpixels;
+	}
+	void saveDenoised(std::string filename)
+	{
+		Colour* hdrpixels = new Colour[width * height];
+		for (unsigned int i = 0; i < (width * height); i++)
+		{
+			hdrpixels[i] = denoised[i] / (float)SPP;
+		}
+		stbi_write_hdr(filename.c_str(), width, height, 3, (float*)hdrpixels);
+		delete[] hdrpixels;
+	}
+
+	~Film()
+	{
+		delete[] film;
+		delete[] denoised;
+		delete[] albedo;
+		delete[] normal;
+		delete filter;
 	}
 };

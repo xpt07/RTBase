@@ -20,9 +20,9 @@ int main(int argc, char *argv[])
 	//std::string sceneName = "veach-bidir";
 	//std::string sceneName = "dining-room";
 	//std::string sceneName = "bathroom";
-	//std::string sceneName = "MaterialsScene";
+	std::string sceneName = "MaterialsScene";
 	//std::string sceneName = "glass-of-water";
-	std::string sceneName = "cornell-box";
+	//std::string sceneName = "cornell-box";
 	std::string filename = "GI.hdr";
 	unsigned int SPP = 8192;
 
@@ -112,9 +112,9 @@ int main(int argc, char *argv[])
 		// Time how long a render call takes
 		timer.reset();
 		//rt.render();
-		//rt.renderPT();
+		rt.renderPT();
 		//rt.renderLT();
-		rt.renderAdaptive();
+		//rt.renderAdaptive();
 		float t = timer.dt();
 		// Write
 		std::cout << t << std::endl;
@@ -128,8 +128,18 @@ int main(int argc, char *argv[])
 			std::string ldrFilename = filename.substr(0, pos) + ".png";
 			rt.savePNG(ldrFilename);
 		}
+		//// Denoise after renderPT every frame
+		//rt.denoise();
+
+		if (canvas.keyPressed('O'))
+		{
+			rt.saveDenoisedHDR("Denoised.hdr");
+			std::cout << "Denoised image saved to Denoised.hdr\n";
+		}
+
 		if (SPP == rt.getSPP())
 		{
+			rt.saveDenoisedHDR("Denoised.hdr");
 			rt.saveHDR(filename);
 			break;
 		}

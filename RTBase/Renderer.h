@@ -25,6 +25,15 @@ public:
 	std::thread **threads;
 	int numProcs;
 
+	oidn::DeviceRef device;
+	oidn::FilterRef filter;
+	oidn::BufferRef colourBuffer;
+	oidn::BufferRef outputBuffer;
+	oidn::BufferRef albedoBuffer;
+	oidn::BufferRef normalBuffer;
+
+	bool denoiseCompleted = false;
+
 	int tileSize;
 	int Nx;
 	int Ny;
@@ -50,10 +59,51 @@ public:
 		Nx = (film->width + tileSize - 1) / tileSize;
 		Ny = (film->height + tileSize - 1) / tileSize;
 		totalTiles = Nx * Ny;
-
 		tileSamples.resize(totalTiles, initSamples);
 
 		clear();
+
+		device = oidn::newDevice();
+		device.commit();
+
+		colourBuffer = device.newBuffer(film->width * film->height * 3 * sizeof(float));
+		outputBuffer = device.newBuffer(film->width * film->height * 3 * sizeof(float));
+		albedoBuffer = device.newBuffer(film->width * film->height * 3 * sizeof(float));
+		normalBuffer = device.newBuffer(film->width * film->height * 3 * sizeof(float));
+
+		filter = device.newFilter("RT");
+		filter.setImage("color", colourBuffer, oidn::Format::Float3, film->width, film->height);
+		filter.setImage("albedo", albedoBuffer, oidn::Format::Float3, film->width, film->height);
+		filter.setImage("normal", normalBuffer, oidn::Format::Float3, film->width, film->height);
+		filter.setImage("output", outputBuffer, oidn::Format::Float3, film->width, film->height);
+		filter.set("hdr", true);
+		filter.commit();
+	}
+	void denoise()
+	{
+		// Fill buffers
+		std::memcpy(colourBuffer.getData(), film->film, film->width * film->height * 3 * sizeof(float));
+		std::memcpy(albedoBuffer.getData(), film->albedo, film->width * film->height * 3 * sizeof(float));
+		std::memcpy(normalBuffer.getData(), film->normal, film->width * film->height * 3 * sizeof(float));
+
+		filter.execute();
+
+		std::memcpy(film->denoised, outputBuffer.getData(), film->width * film->height * 3 * sizeof(float));
+
+		const char* errorMessage;
+		if (device.getError(errorMessage) != oidn::Error::None)
+			std::cerr << "Error: " << errorMessage << std::endl;
+
+
+		for (unsigned int y = 0; y < film->height; y++)
+		{
+			for (unsigned int x = 0; x < film->width; x++)
+			{
+				unsigned char r, g, b;
+				film->tonemapDenoised(x, y, r, g, b);
+				canvas->draw(x, y, r, g, b);
+			}
+		}
 	}
 	void clear()
 	{
@@ -74,6 +124,7 @@ public:
 		float lightPdf;
 		Colour emitted;
 		Vec3 p = light->sample(shadingData, sampler, emitted, lightPdf);
+
 		Vec3 wi;
 		float G = 0.0f;
 		bool visible = false;
@@ -91,7 +142,7 @@ public:
 		{
 			// Calculate GTerm
 			wi = p;
-			float GTerm = max(Dot(wi, shadingData.sNormal), 0.0f);
+			G = max(Dot(wi, shadingData.sNormal), 0.0f);
 			visible = G > 0 && scene->visible(shadingData.x, shadingData.x + wi * 10000.0f);
 		}
 		if (!visible)
@@ -506,12 +557,16 @@ public:
 								float tx = x + sampler->next();
 								float ty = y + sampler->next();
 								Ray ray = scene->camera.generateRay(tx, ty);
-								//Colour norm = viewNormals(ray);
-								//Colour alb = albedo(ray);
+								Colour norm = viewNormals(ray);
+								Colour alb = albedo(ray);
 								//Colour dir = direct(ray, sampler);
 								Colour th(1.0f, 1.0f, 1.0f);
 								Colour pathT = pathTrace(ray, th, 0, sampler);
+
 								film->splat(px, py, pathT);
+								film->splatAlbedo((int)px, (int)py, alb);
+								film->splatNormal((int)px, (int)py, norm);
+
 								unsigned char r, g, b;
 								film->tonemap(x, y, r, g, b);
 								canvas->draw(x, y, r, g, b);
@@ -603,6 +658,10 @@ public:
 	void saveHDR(std::string filename)
 	{
 		film->save(filename);
+	}
+	void saveDenoisedHDR(std::string filename)
+	{
+		film->saveDenoised(filename);
 	}
 	void savePNG(std::string filename)
 	{
