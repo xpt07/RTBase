@@ -25,11 +25,14 @@ public:
 	std::thread **threads;
 	int numProcs;
 
+	int tileSize;
+	int Nx;
+	int Ny;
+	int totalTiles;
+
 	std::vector<unsigned int> tileSamples;
-	std::vector<unsigned int> tileSPP;
 	unsigned int initSamples = 4;
 	unsigned int totalSamples = 8192;
-	int maxSamples = INT_MAX;
 
 	void init(Scene* _scene, GamesEngineeringBase::Window* _canvas)
 	{
@@ -42,12 +45,19 @@ public:
 		numProcs = sysInfo.dwNumberOfProcessors;
 		threads = new std::thread*[numProcs];
 		samplers = new MTRandom[numProcs];
+
+		tileSize = 16;
+		Nx = (film->width + tileSize - 1) / tileSize;
+		Ny = (film->height + tileSize - 1) / tileSize;
+		totalTiles = Nx * Ny;
+
+		tileSamples.resize(totalTiles, initSamples);
+
 		clear();
 	}
 	void clear()
 	{
 		film->clear();
-		maxSamples = INT_MAX;
 	}
 
 	Colour computeDirect(ShadingData shadingData, Sampler* sampler)
@@ -284,11 +294,6 @@ public:
 
 	void calculateSamples()
 	{
-		const int tileSize = 16;
-		int Nx = (film->width + tileSize - 1) / tileSize;
-		int Ny = (film->height + tileSize - 1) / tileSize;
-		int totalTiles = Nx * Ny;
-
 		std::atomic<int> nextTileIndex(0);
 		for (int i = 0; i < numProcs; i++)
 		{
@@ -326,20 +331,56 @@ public:
 	}
 	void renderAdaptive()
 	{
-		const int tileSize = 16;
-		int Nx = (film->width + tileSize - 1) / tileSize;
-		int Ny = (film->height + tileSize - 1) / tileSize;
-		int totalTiles = Nx * Ny;
+		std::vector<unsigned int> tileSPP(totalTiles, 0);
 
-		tileSamples.resize(totalTiles, initSamples);
-		tileSPP.resize(totalTiles, 0);
+		// initial Pass
+		for (unsigned int spp = 0; spp < initSamples; spp++)
+		{
+			std::atomic<int> nextTileIndex(0);
+			for (int i = 0; i < numProcs; i++)
+			{
+				threads[i] = new std::thread([&, i]() {
+					int tileIdx;
+					while ((tileIdx = nextTileIndex.fetch_add(1)) < totalTiles)
+					{
+						int tileX = tileIdx % Nx;
+						int tileY = tileIdx / Nx;
+						int startX = tileX * tileSize;
+						int startY = tileY * tileSize;
+						int endX = min(startX + tileSize, (int)film->width);
+						int endY = min(startY + tileSize, (int)film->height);
 
+						MTRandom* sampler = &samplers[i];
+
+						for (int y = startY; y < endY; y++)
+						{
+							for (int x = startX; x < endX; x++)
+							{
+								float tx = x + sampler->next();
+								float ty = y + sampler->next();
+								Ray ray = scene->camera.generateRay(tx, ty);
+								Colour th(1.0f, 1.0f, 1.0f);
+								Colour pathT = pathTrace(ray, th, 0, sampler);
+								film->splat(tx, ty, pathT);
+							}
+						}
+						tileSPP[tileIdx]++;
+					}
+					});
+			}
+			for (int i = 0; i < numProcs; i++) {
+				threads[i]->join();
+				delete threads[i];
+			}
+		}
+
+		// compute Variance-based sample allocation
 		calculateSamples();
 
+		// adaptive Sampling Pass
 		bool done = false;
 		while (!done)
 		{
-
 			std::atomic<int> nextTileIndex(0);
 			std::atomic<bool> tilesIncomplete(false);
 
@@ -365,17 +406,16 @@ public:
 						{
 							for (int x = startX; x < endX; x++)
 							{
-								float px = x + 0.5f;
-								float py = y + 0.5f;
 								float tx = x + sampler->next();
 								float ty = y + sampler->next();
 								Ray ray = scene->camera.generateRay(tx, ty);
 								Colour th(1.0f, 1.0f, 1.0f);
 								Colour pathT = pathTrace(ray, th, 0, sampler);
-								film->splat(px, py, pathT);
+								film->splat(tx, ty, pathT);
 							}
 						}
 						tileSPP[tileIdx]++;
+						tilesIncomplete.store(true);
 					}
 					});
 			}
@@ -383,43 +423,24 @@ public:
 				threads[i]->join();
 				delete threads[i];
 			}
+
+			for (unsigned int y = 0; y < film->height; y++)
+			{
+				for (unsigned int x = 0; x < film->width; x++)
+				{
+					int tileX = x / tileSize;
+					int tileY = y / tileSize;
+					int tileIdx = tileY * Nx + tileX;
+					int spp = tileSPP[tileIdx];
+					unsigned char r, g, b;
+					film->tonemap(x, y, r, g, b, spp);
+					canvas->draw(x, y, r, g, b);
+				}
+			}
+			canvas->present();
+
 			done = !tilesIncomplete.load();
 		}
-
-
-		std::atomic<int> nextTileIndex(0);
-		for (int i = 0; i < numProcs; i++)
-		{
-			threads[i] = new std::thread([&, i]() {
-				int tileIdx;
-				while ((tileIdx = nextTileIndex.fetch_add(1)) < totalTiles)
-				{
-					int tileX = tileIdx % Nx;
-					int tileY = tileIdx / Nx;
-					int startX = tileX * tileSize;
-					int startY = tileY * tileSize;
-					int endX = min(startX + tileSize, (int)film->width);
-					int endY = min(startY + tileSize, (int)film->height);
-
-					int spp = tileSPP[tileIdx];
-
-					for (int y = startY; y < endY; y++)
-					{
-						for (int x = startX; x < endX; x++)
-						{
-							unsigned char r, g, b;
-							film->tonemap(x, y, r, g, b, spp);
-							canvas->draw(x, y, r, g, b);
-						}
-					}
-				}
-				});
-		}
-		for (int i = 0; i < numProcs; i++) {
-			threads[i]->join();
-			delete threads[i];
-		}
-
 	}
 
 	void render()
