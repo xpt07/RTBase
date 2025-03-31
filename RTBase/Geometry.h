@@ -89,28 +89,25 @@ public:
 
 	bool rayIntersect(const Ray& r, float& t, float& u, float& v) const
 	{
-		Vec3 p = Cross(r.dir, e2);
-		float det = p.dot(e1);
+		Vec3 pVec = Cross(r.dir, e2);
+		float determinant = Dot(pVec, e1);
 
-		if (std::abs(det) < MollEPSILON)
+		if (std::fabs(determinant) < MollEPSILON)
 			return false;
 
-		float invDet = 1.0f / det;
-		Vec3 T = r.o - vertices[2].p;
+		float invDet = 1.0f / determinant;
+		Vec3 tVec = r.o - vertices[2].p;
 
-		u = T.dot(p) * invDet;
-
-		if ((u < 0 && abs(u) > MollEPSILON) || (u > 1 && abs(u - 1) > MollEPSILON))
+		u = Dot(tVec, pVec) * invDet;
+		if (u < -MollEPSILON || u > 1.0f + MollEPSILON)
 			return false;
 
-		p = Cross(T, e1);
-		v = r.dir.dot(p) * invDet;
-
-		if ((v < 0 && abs(v) > MollEPSILON) || (u + v > 1 && abs(u + v - 1) > MollEPSILON))
+		Vec3 qVec = Cross(tVec, e1);
+		v = Dot(r.dir, qVec) * invDet;
+		if (v < -MollEPSILON || (u + v) > 1.0f + MollEPSILON)
 			return false;
 
-		t = e2.dot(p) * invDet;
-
+		t = Dot(e2, qVec) * invDet;
 		if (t < MollEPSILON)
 			return false;
 

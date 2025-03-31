@@ -269,19 +269,13 @@ public:
 			return;
 
 		// Compute the vector from the point to the camera and its squared length
-		Vec3 camVec = scene->camera.origin - p;
-
-		// Normalize to get the direction for the angular term
-		Vec3 camDir = camVec.normalize();
+		Vec3 camDir = (scene->camera.origin - p).normalize();
 
 		// Compute the cosine of the angle between the ray and the camera's view direction
 		float cosCamera = std::fabs(Dot(camDir, scene->camera.viewDirection));
 
 		// Sensor importance function.
 		float we = 1.0f / (scene->camera.Afilm * powf(cosCamera, 4));
-
-		// Compute cosine of the angle between the surface normal and the direction to the camera.
-		float cosSurface = max(Dot(n, camDir), 0.0f);
 
 		Colour pixelContribution = col * we;
 		film->splat(screenX, screenY, pixelContribution);
@@ -327,23 +321,18 @@ public:
 	{
 		float pmf;
 		Light* light = scene->sampleLight(sampler, pmf);
-
 		float posPdf, dirPdf;
 		Vec3 lightPos = light->samplePositionFromLight(sampler, posPdf);
 		Vec3 lightDir = light->sampleDirectionFromLight(sampler, dirPdf);
-
 		Colour Le = light->evaluate(-lightDir) / (dirPdf * posPdf * pmf);
-
 		ShadingData shadingData;
 		connectToCamera(lightPos, light->normal(shadingData, -lightDir), Le);
-
 		Ray r(lightPos, lightDir);
 		Colour pathThroughput(1.0f, 1.0f, 1.0f);
-
 		lightTracePath(r, pathThroughput, Le, sampler);
 	}
 
-	void calculateSamples()
+	void calcSamples()
 	{
 		std::atomic<int> nextTileIndex(0);
 		for (int i = 0; i < numProcs; i++)
@@ -360,14 +349,19 @@ public:
 					std::vector<float> lums = film->getLums(startX, startY, endX, endY);
 
 					float total = 0.0f;
-					for (float lum : lums)
+					for (float lum : lums) {
 						total += lum;
-					float mean = (lums.empty()) ? 0.0f : total / lums.size();
+					}
+
+					float mean = lums.empty() ? 0.0f : total / static_cast<float>(lums.size());
 
 					float variance = 0.0f;
-					for (float lum : lums)
-						variance += (lum - mean) * (lum - mean);
-					variance = (lums.empty()) ? 0.0f : variance / lums.size();
+					for (float lum : lums) {
+						float diff = lum - mean;
+						variance += diff * diff;
+					}
+
+					variance = lums.empty() ? 0.0f : variance / static_cast<float>(lums.size());
 
 					float weight = variance / (variance + mean * mean + EPSILON);
 					tileSamples[tileIdx] = static_cast<unsigned int>(totalSamples * weight + initSamples);
@@ -426,7 +420,7 @@ public:
 		}
 
 		// compute Variance-based sample allocation
-		calculateSamples();
+		calcSamples();
 
 		// adaptive Sampling Pass
 		bool done = false;
