@@ -22,7 +22,8 @@ int main(int argc, char *argv[])
 	//std::string sceneName = "bathroom";
 	//std::string sceneName = "MaterialsScene";
 	//std::string sceneName = "glass-of-water";
-	std::string sceneName = "cornell-box";
+	//std::string sceneName = "cornell-box";
+	std::string sceneName = "coffee";
 	std::string filename = "GI.hdr";
 	unsigned int SPP = 8192;
 
@@ -121,12 +122,14 @@ int main(int argc, char *argv[])
 		if (canvas.keyPressed('P'))
 		{
 			rt.saveHDR(filename);
+			std::cout << "image saved to GI.hdr\n";
 		}
 		if (canvas.keyPressed('L'))
 		{
 			size_t pos = filename.find_last_of('.');
 			std::string ldrFilename = filename.substr(0, pos) + ".png";
 			rt.savePNG(ldrFilename);
+			std::cout << "image saved to GI.png\n";
 		}
 		//// Denoise after renderPT every frame
 		//rt.denoise();
