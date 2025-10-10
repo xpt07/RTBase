@@ -115,29 +115,12 @@ public:
 			}
 		}
 	}
-	IntersectionData traverse(const Ray& ray)
-	{
-		//IntersectionData intersection;
-		//intersection.t = FLT_MAX;
-		//for (int i = 0; i < triangles.size(); i++)
-		//{
-		//	float t;
-		//	float u;
-		//	float v;
-		//	if (triangles[i].rayIntersect(ray, t, u, v))
-		//	{
-		//		if (t < intersection.t)
-		//		{
-		//			intersection.t = t;
-		//			intersection.ID = i;
-		//			intersection.alpha = u;
-		//			intersection.beta = v;
-		//			intersection.gamma = 1.0f - (u + v);
-		//		}
-		//	}
-		//}
-		//return intersection;
-
+	IntersectionData traverse(const Ray& ray) const {
+		if (!bvh) {
+			IntersectionData empty;
+			empty.hit = false;
+			return empty;
+		}
 		return bvh->traverse(ray, triangles);
 	}
 	Light* sampleLight(Sampler* sampler, float& pmf)
@@ -166,31 +149,18 @@ public:
 			lights.push_back(background);
 		}
 	}
-	bool visible(const Vec3& p1, const Vec3& p2)
-	{
-		Ray ray;
-		Vec3 dir = p2 - p1;
-		float maxT = dir.length() - (2.0f * EPSILON);
-		dir = dir.normalize();
-		ray.init(p1 + (dir * EPSILON), dir);
-
+	bool traverseVisible(const Ray& ray, float maxT) const {
+		if (!bvh) return false;
 		return bvh->traverseVisible(ray, triangles, maxT);
-
-		/*for (int i = 0; i < triangles.size(); i++)
-		{
-			float t;
-			float u;
-			float v;
-			if (triangles[i].rayIntersect(ray, t, u, v))
-			{
-				if (t < maxT)
-				{
-					return false;
-				}
-			}
-		}
-		return true;*/
 	}
+	bool visible(const Vec3& from, const Vec3& to) const {
+		Vec3 dir = to - from;
+		float dist = dir.length();
+		dir = dir / dist;
+		Ray ray(from + dir * EPSILON, dir);
+		return !traverseVisible(ray, dist - EPSILON);
+	}
+
 	Colour emit(Triangle* light, ShadingData shadingData, Vec3 wi)
 	{
 		return materials[light->materialIndex]->emit(shadingData, wi);
